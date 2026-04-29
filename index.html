@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#22c55e">
   <title>Assistant Coach ⚾</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -90,7 +89,7 @@
     function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(allTeams)); }
 
     function copyBackupToClipboard() {
-      navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => alert("✅ Backup copied!"));
+      navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => alert("✅ Backup copied to clipboard!"));
     }
 
     function downloadBackup() {
@@ -125,12 +124,7 @@
 
     function createNewTeam() {
       const name = prompt("New team name:", "RA BLK 13U");
-      if (name) {
-        allTeams[name] = {};
-        currentTeam = name;
-        updateTeamSelector();
-        saveData();
-      }
+      if (name) { allTeams[name] = {}; currentTeam = name; updateTeamSelector(); saveData(); }
     }
 
     function updateTeamSelector() {
@@ -144,10 +138,7 @@
       });
     }
 
-    function switchTeam() {
-      currentTeam = document.getElementById("teamSelect").value;
-      if (currentTeam) loadCurrentView();
-    }
+    function switchTeam() { currentTeam = document.getElementById("teamSelect").value; if (currentTeam) loadCurrentView(); }
 
     function importNewSeason() {
       if (!currentTeam) return alert("Create/select a team first");
@@ -218,10 +209,7 @@
       document.getElementById("seasonSelector").style.display = "block";
     }
 
-    function switchSeason() {
-      currentView = document.getElementById("seasonSelect").value;
-      loadCurrentView();
-    }
+    function switchSeason() { currentView = document.getElementById("seasonSelect").value; loadCurrentView(); }
 
     function loadCurrentView() {
       if (!currentTeam) return;
