@@ -4,6 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Assistant Coach">
+  <meta name="theme-color" content="#22c55e">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    &quot;name&quot;:&quot;Assistant Coach ⚾&quot;,
+    &quot;short_name&quot;:&quot;Asst Coach&quot;,
+    &quot;start_url&quot;:&quot;.&quot;,
+    &quot;display&quot;:&quot;standalone&quot;,
+    &quot;background_color&quot;:&quot;#0f172a&quot;,
+    &quot;theme_color&quot;:&quot;#22c55e&quot;,
+    &quot;icons&quot;:[{&quot;src&quot;:&quot;https://cdn-icons-png.flaticon.com/512/101/101370.png&quot;,&quot;sizes&quot;:&quot;512x512&quot;,&quot;type&quot;:&quot;image/png&quot;}]
+  }">
+
   <title>Assistant Coach ⚾</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -24,36 +39,30 @@
 <body>
   <div class="container">
     <h1>Assistant Coach ⚾</h1>
-
     <!-- Backup -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
-      <h2>Backup</h2>
+      <h2>Backup & Restore</h2>
       <button onclick="copyBackupToClipboard()" style="background:#eab308;color:black;">📋 COPY BACKUP TO CLIPBOARD</button>
       <button onclick="downloadBackup()">⬇️ Download Backup</button>
     </div>
-
     <!-- Team Management -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <select id="teamSelect" onchange="switchTeam()"></select>
       <button onclick="createNewTeam()">+ New Team</button>
       <button onclick="removeCurrentTeam()">🗑️ Remove Team</button>
     </div>
-
     <!-- Import -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <input type="file" id="csvFile" accept=".csv" style="width:100%;margin-bottom:10px;">
       <button onclick="importNewSeason()" style="background:#3b82f6;">📤 Import GameChanger CSV</button>
     </div>
-
     <div id="seasonSelector" style="display:none;background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <select id="seasonSelect" onchange="switchSeason()"></select>
     </div>
-
     <div id="summarySection" style="background:#334155;padding:18px;border-radius:12px;text-align:center;font-size:1.4em;margin:15px 0;display:none;"></div>
-
     <div id="playerList"></div>
   </div>
-
+  <!-- Player Modal -->
   <div id="playerModal" class="modal">
     <div class="modal-content">
       <span class="close" onclick="closeModal()">×</span>
@@ -65,7 +74,6 @@
       </div>
     </div>
   </div>
-
   <script>
     let allTeams = {};
     let currentTeam = "";
@@ -73,40 +81,32 @@
     let players = [];
     let posChart = null;
     let hittingChart = null;
-
-    const STORAGE_KEY = "AssistantCoach_Final";
-
+    const STORAGE_KEY = "AssistantCoach_Full_v2";
     window.onload = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) allTeams = JSON.parse(saved);
       updateTeamSelector();
     };
-
     function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(allTeams)); }
-
     function copyBackupToClipboard() {
-      navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => alert("✅ Backup copied!"));
+      if (Object.keys(allTeams).length === 0) return alert("No data yet");
+      navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => {
+        alert("✅ Backup copied to clipboard!\nPaste into Notes app and save.");
+      });
     }
-
     function downloadBackup() {
+      if (Object.keys(allTeams).length === 0) return alert("No data");
       const dataStr = JSON.stringify(allTeams, null, 2);
       const blob = new Blob([dataStr], {type: "application/json"});
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = "AssistantCoach_Backup.json";
+      a.href = url; a.download = `AssistantCoach_Backup_${new Date().toISOString().slice(0,10)}.json`;
       a.click(); URL.revokeObjectURL(url);
     }
-
     function createNewTeam() {
       const name = prompt("New team name:", "RA BLK 13U");
-      if (name) {
-        allTeams[name] = {};
-        currentTeam = name;
-        updateTeamSelector();
-        saveData();
-      }
+      if (name) { allTeams[name] = {}; currentTeam = name; updateTeamSelector(); saveData(); }
     }
-
     function updateTeamSelector() {
       const sel = document.getElementById("teamSelect");
       sel.innerHTML = "";
@@ -117,20 +117,13 @@
         sel.appendChild(opt);
       });
     }
-
-    function switchTeam() {
-      currentTeam = document.getElementById("teamSelect").value;
-      if (currentTeam) loadCurrentView();
-    }
-
+    function switchTeam() { currentTeam = document.getElementById("teamSelect").value; if (currentTeam) loadCurrentView(); }
     function importNewSeason() {
       if (!currentTeam) return alert("Create/select a team first");
       const file = document.getElementById("csvFile").files[0];
-      if (!file) return alert("Select a CSV file");
-
+      if (!file) return alert("Select CSV file");
       const seasonName = prompt("Season name:", "Spring 2026");
       if (!seasonName) return;
-
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
@@ -140,7 +133,6 @@
             const last = (row["Last"] || row["Last name"] || "").trim();
             const name = first && last ? `${first} ${last}` : first || last || "";
             if (name.length < 3) return null;
-
             return {
               number: (row["#"] || row["Number"] || "?").trim(),
               name: name,
@@ -154,7 +146,7 @@
               strikeouts: parseInt(row["SO"] || row["K"] || 0),
               inningsPitched: parseFloat(row["IP"] || 0),
               earnedRuns: parseInt(row["ER"] || 0),
-              battingOrder: parseInt(row["Batting Order"] || row["Order"] || row["BO"] || 0),
+              battingOrder: parseInt(row["Batting Order"] || row["Lineup"] || row["Order"] || row["BO"] || row["Spot"] || 0),
               posP: parseFloat(row["P"] || row["Pitching"] || row["DEF_P"] || 0),
               posC: parseFloat(row["C"] || row["Catcher"] || row["DEF_C"] || 0),
               pos1B: parseFloat(row["DEF_1B"] || row["1B"] || 0),
@@ -166,19 +158,16 @@
               posRF: parseFloat(row["RF"] || row["DEF_RF"] || 0),
             };
           }).filter(p => p);
-
           if (!allTeams[currentTeam]) allTeams[currentTeam] = {};
           allTeams[currentTeam][seasonName] = seasonPlayers;
-
           currentView = seasonName;
           updateSeasonSelector();
           loadCurrentView();
           saveData();
-          alert(`✅ Imported ${seasonPlayers.length} players for ${seasonName}`);
+          alert(`✅ Imported ${seasonPlayers.length} players`);
         }
       });
     }
-
     function updateSeasonSelector() {
       const sel = document.getElementById("seasonSelect");
       sel.innerHTML = '<option value="Career">🏆 Career</option>';
@@ -191,31 +180,26 @@
       }
       document.getElementById("seasonSelector").style.display = "block";
     }
-
     function switchSeason() { currentView = document.getElementById("seasonSelect").value; loadCurrentView(); }
-
     function loadCurrentView() {
       if (!currentTeam) return;
       const teamSeasons = allTeams[currentTeam] || {};
-
       if (currentView === "Career") {
         const map = {};
         Object.values(teamSeasons).flat().forEach(p => {
           const key = p.firstName || p.name.toLowerCase();
           if (!map[key]) map[key] = {...p, gp:0,atBats:0,hits:0,walks:0,homeRuns:0,rbis:0,strikeouts:0,inningsPitched:0,earnedRuns:0};
           const t = map[key];
-          Object.keys(p).forEach(k => { if (typeof p[k] === "number") t[k] = (t[k]||0) + p[k]; });
+          Object.keys(p).forEach(k => { if (typeof p[k]==="number") t[k] = (t[k]||0) + p[k]; });
         });
         players = Object.values(map);
       } else {
         players = teamSeasons[currentView] || [];
       }
-
       players.sort((a,b) => (b.atBats ? b.hits/b.atBats : 0) - (a.atBats ? a.hits/a.atBats : 0));
       renderSummary();
       renderRoster();
     }
-
     function renderSummary() {
       let hr=0, rbi=0, ab=0, h=0;
       players.forEach(p=>{hr+=p.homeRuns||0; rbi+=p.rbis||0; ab+=p.atBats||0; h+=p.hits||0;});
@@ -223,16 +207,13 @@
       document.getElementById("summarySection").innerHTML = `Team AVG: <strong>${avg}</strong> | HR: <strong>${hr}</strong> | RBI: <strong>${rbi}</strong>`;
       document.getElementById("summarySection").style.display = "block";
     }
-
     function renderRoster() {
       const container = document.getElementById("playerList");
       container.innerHTML = `<h2>${currentTeam} — ${currentView} (${players.length} players)</h2>`;
-
       players.forEach((p, i) => {
         const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
         const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
         const bo = p.battingOrder ? `#${p.battingOrder}` : "—";
-
         const div = document.createElement("div");
         div.className = "player-card";
         div.innerHTML = `
@@ -246,46 +227,72 @@
         container.appendChild(div);
       });
     }
-
     function showProfile(i) {
       const p = players[i];
       const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
       const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
       const ops = (parseFloat(obp) + (p.atBats ? (p.hits + 2*p.homeRuns)/p.atBats : 0)).toFixed(2);
-
+      const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
+      let pitchingHTML = p.inningsPitched > 0 ? `
+        <p><strong>IP:</strong> ${p.inningsPitched.toFixed(1)} | <strong>ERA:</strong> ${era} | <strong>WHIP:</strong> ${((p.hits + p.walks)/p.inningsPitched).toFixed(2)}</p>
+      ` : "";
       document.getElementById("modalName").textContent = `#${p.number} ${p.name}`;
       document.getElementById("modalBody").innerHTML = `
         <p>GP: ${p.gp} | AVG: ${avg} | OBP: ${obp} | OPS: ${ops} | BO: <strong>${p.battingOrder ? "#"+p.battingOrder : "—"}</strong></p>
         <p>HR: ${p.homeRuns} | RBI: ${p.rbis} | BB: ${p.walks} | SO: ${p.strikeouts}</p>
+        ${pitchingHTML}
       `;
-
       document.getElementById("playerModal").style.display = "block";
-
       setTimeout(() => {
-        const positions = [{name:"P",val:p.posP},{name:"C",val:p.posC},{name:"1B",val:p.pos1B},{name:"2B",val:p.pos2B},{name:"3B",val:p.pos3B},{name:"SS",val:p.posSS},{name:"LF",val:p.posLF},{name:"CF",val:p.posCF},{name:"RF",val:p.posRF}];
+        const positions = [
+          {name:"P", val:p.posP}, {name:"C", val:p.posC}, {name:"1B", val:p.pos1B},
+          {name:"2B", val:p.pos2B}, {name:"3B", val:p.pos3B}, {name:"SS", val:p.posSS},
+          {name:"LF", val:p.posLF}, {name:"CF", val:p.posCF}, {name:"RF", val:p.posRF}
+        ];
         const totalPos = positions.reduce((a,b)=>a+b.val,0);
-        const filtered = positions.filter(pos => pos.val > 0.5);
-
+        const filteredPos = positions.filter(pos => pos.val > 0.5);
         if (posChart) posChart.destroy();
         posChart = new Chart(document.getElementById("posChart"), {
           type: 'pie',
-          data: { labels: filtered.map(pos => pos.name), datasets: [{ data: filtered.map(pos => pos.val), backgroundColor: ['#22c55e','#3b82f6','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'] }] },
-          options: { plugins: { datalabels: { formatter: (v) => totalPos>0 ? Math.round((v/totalPos)*100)+'%' : '', color:'#fff', font:{weight:'bold', size:16} }}}}
+          data: {
+            labels: filteredPos.map(pos => pos.name),
+            datasets: [{ data: filteredPos.map(pos => pos.val), backgroundColor: ['#22c55e','#3b82f6','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'] }]
+          },
+          options: {
+            plugins: {
+              datalabels: {
+                formatter: (value) => totalPos > 0 ? Math.round((value / totalPos) * 100) + '%' : '',
+                color: '#fff', font: { weight: 'bold', size: 16 }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
         });
-
         const singles = Math.max(0, p.hits - p.homeRuns);
         const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
         const totalHitting = (p.homeRuns||0) + singles + (p.walks||0) + (p.strikeouts||0) + otherOuts;
-
         if (hittingChart) hittingChart.destroy();
         hittingChart = new Chart(document.getElementById("hittingChart"), {
           type: 'pie',
-          data: { labels: ['HR','Singles','Walks','K','Other Outs'], datasets: [{ data: [p.homeRuns||0,singles,p.walks||0,p.strikeouts||0,otherOuts], backgroundColor: ['#ef4444','#eab308','#3b82f6','#f97316','#64748b'] }] },
-          options: { plugins: { datalabels: { formatter: (v) => totalHitting>0 ? Math.round((v/totalHitting)*100)+'%' : '', color:'#fff', font:{weight:'bold', size:16} }}}}
+          data: {
+            labels: ['HR', 'Singles', 'Walks', 'Strikeouts', 'Other Outs'],
+            datasets: [{
+              data: [p.homeRuns||0, singles, p.walks||0, p.strikeouts||0, otherOuts],
+              backgroundColor: ['#ef4444', '#eab308', '#3b82f6', '#f97316', '#64748b']
+            }]
+          },
+          options: {
+            plugins: {
+              datalabels: {
+                formatter: (value) => totalHitting > 0 ? Math.round((value / totalHitting) * 100) + '%' : '',
+                color: '#fff', font: { weight: 'bold', size: 16 }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
         });
       }, 300);
     }
-
     function closeModal() { document.getElementById("playerModal").style.display = "none"; }
   </script>
 </body>
