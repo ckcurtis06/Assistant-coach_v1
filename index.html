@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,9 +41,11 @@
 
     table { width:100%; border-collapse:collapse; background:#1e2937; border-radius:12px; overflow:hidden; margin-top:10px; }
     th, td { padding:12px 8px; text-align:center; border-bottom:1px solid #334155; }
-    th { background:#334155; cursor:pointer; }
+    th { background:#334155; cursor:pointer; user-select:none; }
     th:hover { background:#475569; }
     tr:hover { background:#334155; }
+    .sort-asc::after { content: " ↑"; }
+    .sort-desc::after { content: " ↓"; }
   </style>
 </head>
 <body>
@@ -107,6 +110,7 @@
     let players = [];
     let posChart = null;
     let hittingChart = null;
+    let currentSort = { col: -1, dir: 1 }; // For table sorting
     const STORAGE_KEY = "AssistantCoach_Full_v2";
 
     window.onload = () => {
@@ -141,14 +145,11 @@
       reader.onload = function(e) {
         try {
           allTeams = JSON.parse(e.target.result);
-          
-          // Force full refresh
           updateTeamSelector();
-          
           if (Object.keys(allTeams).length > 0) {
             currentTeam = Object.keys(allTeams)[0];
-            updateSeasonSelector();           // This was missing
-            currentView = Object.keys(allTeams[currentTeam])[0] || "Career";  // Load first available season
+            updateSeasonSelector();
+            currentView = Object.keys(allTeams[currentTeam])[0] || "Career";
             loadCurrentView();
           }
           saveData();
@@ -398,11 +399,30 @@
     function renderTeamTable() {
       const container = document.getElementById("teamTableContainer");
       let html = `<h2>${currentTeam} — ${currentView} Team Stats Table</h2>`;
-      html += `<table><thead><tr>
-        <th>#</th><th>Player</th><th>GP</th><th>AVG</th><th>OBP</th><th>OPS</th><th>BO</th>
-        <th>HR</th><th>RBI</th><th>BB</th><th>SO</th>
-        <th>IP</th><th>ERA</th><th>WHIP</th>
-        <th>P%</th><th>C%</th><th>1B%</th><th>2B%</th><th>3B%</th><th>SS%</th><th>LF%</th><th>CF%</th><th>RF%</th>
+      html += `<table id="statsTable"><thead><tr>
+        <th onclick="sortTable(0)">#</th>
+        <th onclick="sortTable(1)">Player</th>
+        <th onclick="sortTable(2)">GP</th>
+        <th onclick="sortTable(3)">AVG</th>
+        <th onclick="sortTable(4)">OBP</th>
+        <th onclick="sortTable(5)">OPS</th>
+        <th onclick="sortTable(6)">BO</th>
+        <th onclick="sortTable(7)">HR</th>
+        <th onclick="sortTable(8)">RBI</th>
+        <th onclick="sortTable(9)">BB</th>
+        <th onclick="sortTable(10)">SO</th>
+        <th onclick="sortTable(11)">IP</th>
+        <th onclick="sortTable(12)">ERA</th>
+        <th onclick="sortTable(13)">WHIP</th>
+        <th onclick="sortTable(14)">P%</th>
+        <th onclick="sortTable(15)">C%</th>
+        <th onclick="sortTable(16)">1B%</th>
+        <th onclick="sortTable(17)">2B%</th>
+        <th onclick="sortTable(18)">3B%</th>
+        <th onclick="sortTable(19)">SS%</th>
+        <th onclick="sortTable(20)">LF%</th>
+        <th onclick="sortTable(21)">CF%</th>
+        <th onclick="sortTable(22)">RF%</th>
       </tr></thead><tbody>`;
 
       players.forEach(p => {
@@ -413,7 +433,6 @@
         const ip = p.inningsPitched ? p.inningsPitched.toFixed(1) : "—";
         const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
         const whip = p.inningsPitched > 0 ? ((p.hits + p.walks)/p.inningsPitched).toFixed(2) : "—";
-
         const totalPos = (p.posP + p.posC + p.pos1B + p.pos2B + p.pos3B + p.posSS + p.posLF + p.posCF + p.posRF) || 1;
 
         html += `<tr>
@@ -430,6 +449,44 @@
 
       html += `</tbody></table>`;
       container.innerHTML = html;
+    }
+
+    // === NEW: Sortable Table Function ===
+    function sortTable(colIndex) {
+      if (currentSort.col === colIndex) {
+        currentSort.dir *= -1;
+      } else {
+        currentSort.col = colIndex;
+        currentSort.dir = 1;
+      }
+
+      const table = document.getElementById("statsTable");
+      const tbody = table.tBodies[0];
+      const rows = Array.from(tbody.rows);
+
+      rows.sort((a, b) => {
+        let valA = a.cells[colIndex].textContent.trim();
+        let valB = b.cells[colIndex].textContent.trim();
+
+        // Handle numbers, percentages, and text
+        if (valA.includes('%')) valA = parseFloat(valA);
+        if (valB.includes('%')) valB = parseFloat(valB);
+        if (!isNaN(valA) && !isNaN(valB)) {
+          return (valA - valB) * currentSort.dir;
+        }
+        return valA.localeCompare(valB) * currentSort.dir;
+      });
+
+      rows.forEach(row => tbody.appendChild(row));
+
+      // Update sort indicators
+      const headers = table.getElementsByTagName("th");
+      for (let i = 0; i < headers.length; i++) {
+        headers[i].classList.remove("sort-asc", "sort-desc");
+        if (i === currentSort.col) {
+          headers[i].classList.add(currentSort.dir === 1 ? "sort-asc" : "sort-desc");
+        }
+      }
     }
 
     function removeCurrentTeam() {
