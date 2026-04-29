@@ -8,7 +8,6 @@
   <meta name="apple-mobile-web-app-title" content="Assistant Coach">
   <meta name="theme-color" content="#22c55e">
  
-  <!-- PWA Manifest -->
   <link rel="manifest" href="data:application/manifest+json,{
     &quot;name&quot;:&quot;Assistant Coach ⚾&quot;,
     &quot;short_name&quot;:&quot;Asst Coach&quot;,
@@ -35,12 +34,10 @@
     .charts { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; }
     .chart-container { width:100%; max-width:460px; text-align:center; }
     
-    /* Tabs */
     .tabs { display:flex; gap:10px; margin:15px 0; }
     .tab { flex:1; padding:18px; text-align:center; font-size:1.2em; background:#334155; border-radius:12px; cursor:pointer; }
     .tab.active { background:#22c55e; color:black; font-weight:bold; }
 
-    /* Team Table */
     table { width:100%; border-collapse:collapse; background:#1e2937; border-radius:12px; overflow:hidden; margin-top:10px; }
     th, td { padding:12px 8px; text-align:center; border-bottom:1px solid #334155; }
     th { background:#334155; cursor:pointer; }
@@ -144,13 +141,18 @@
       reader.onload = function(e) {
         try {
           allTeams = JSON.parse(e.target.result);
+          
+          // Force full refresh
           updateTeamSelector();
+          
           if (Object.keys(allTeams).length > 0) {
             currentTeam = Object.keys(allTeams)[0];
+            updateSeasonSelector();           // This was missing
+            currentView = Object.keys(allTeams[currentTeam])[0] || "Career";  // Load first available season
             loadCurrentView();
           }
           saveData();
-          alert("✅ Backup restored successfully!");
+          alert("✅ Backup restored successfully! All seasons should now be available.");
         } catch(err) {
           alert("❌ Invalid backup file");
         }
@@ -245,6 +247,7 @@
         Object.keys(allTeams[currentTeam]).forEach(s => {
           const opt = document.createElement("option");
           opt.value = s; opt.textContent = s;
+          if (s === currentView) opt.selected = true;
           sel.appendChild(opt);
         });
       }
@@ -276,7 +279,7 @@
       players.sort((a,b) => (b.atBats ? b.hits/b.atBats : 0) - (a.atBats ? a.hits/a.atBats : 0));
       renderSummary();
       renderRoster();
-      renderTeamTable();  // Update table when view changes
+      renderTeamTable();
     }
 
     function renderSummary() {
@@ -384,13 +387,11 @@
       document.getElementById("playerModal").style.display = "none"; 
     }
 
-    // === NEW TAB & TABLE FUNCTIONS ===
     function switchTab(n) {
       document.getElementById("tabCards").classList.toggle("active", n === 0);
       document.getElementById("tabTable").classList.toggle("active", n === 1);
       document.getElementById("playerList").style.display = n === 0 ? "block" : "none";
       document.getElementById("teamTableContainer").style.display = n === 1 ? "block" : "none";
-      
       if (n === 1) renderTeamTable();
     }
 
@@ -431,7 +432,6 @@
       container.innerHTML = html;
     }
 
-    // Remove current team function
     function removeCurrentTeam() {
       if (!currentTeam || !confirm(`Delete team ${currentTeam}?`)) return;
       delete allTeams[currentTeam];
