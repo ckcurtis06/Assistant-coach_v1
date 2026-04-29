@@ -70,7 +70,6 @@
   </div>
 
   <script>
-    // Full stable code from before
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -81,6 +80,7 @@
     const STORAGE_KEY = "AssistantCoach_Final";
 
     window.onload = () => {
+      console.log("App started");
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) allTeams = JSON.parse(saved);
       updateTeamSelector();
@@ -124,7 +124,12 @@
 
     function createNewTeam() {
       const name = prompt("New team name:", "RA BLK 13U");
-      if (name) { allTeams[name] = {}; currentTeam = name; updateTeamSelector(); saveData(); }
+      if (name) {
+        allTeams[name] = {};
+        currentTeam = name;
+        updateTeamSelector();
+        saveData();
+      }
     }
 
     function updateTeamSelector() {
@@ -138,7 +143,10 @@
       });
     }
 
-    function switchTeam() { currentTeam = document.getElementById("teamSelect").value; if (currentTeam) loadCurrentView(); }
+    function switchTeam() {
+      currentTeam = document.getElementById("teamSelect").value;
+      if (currentTeam) loadCurrentView();
+    }
 
     function importNewSeason() {
       if (!currentTeam) return alert("Create/select a team first");
@@ -279,6 +287,7 @@
       document.getElementById("playerModal").style.display = "block";
 
       setTimeout(() => {
+        // Pie charts
         const positions = [{name:"P",val:p.posP},{name:"C",val:p.posC},{name:"1B",val:p.pos1B},{name:"2B",val:p.pos2B},{name:"3B",val:p.pos3B},{name:"SS",val:p.posSS},{name:"LF",val:p.posLF},{name:"CF",val:p.posCF},{name:"RF",val:p.posRF}];
         const totalPos = positions.reduce((a,b)=>a+b.val,0);
         const filtered = positions.filter(pos => pos.val > 0.5);
