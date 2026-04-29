@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,13 +26,11 @@
   <div class="container">
     <h1>Assistant Coach ⚾</h1>
 
-    <!-- Backup & Restore -->
+    <!-- Backup -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
-      <h2>Backup & Restore</h2>
+      <h2>Backup</h2>
       <button onclick="copyBackupToClipboard()" style="background:#eab308;color:black;">📋 COPY BACKUP TO CLIPBOARD</button>
       <button onclick="downloadBackup()">⬇️ Download Backup</button>
-      <button onclick="document.getElementById('restoreInput').click()" style="background:#22c55e;color:black;">⬆️ Restore from Backup</button>
-      <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreBackup(event)">
     </div>
 
     <!-- Team Management -->
@@ -97,27 +96,6 @@
       const a = document.createElement("a");
       a.href = url; a.download = "AssistantCoach_Backup.json";
       a.click(); URL.revokeObjectURL(url);
-    }
-
-    function restoreBackup(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          allTeams = JSON.parse(e.target.result);
-          updateTeamSelector();
-          if (Object.keys(allTeams).length > 0) {
-            currentTeam = Object.keys(allTeams)[0];
-            loadCurrentView();
-          }
-          saveData();
-          alert("✅ Backup restored successfully!");
-        } catch(err) {
-          alert("❌ Invalid backup file");
-        }
-      };
-      reader.readAsText(file);
     }
 
     function createNewTeam() {
