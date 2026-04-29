@@ -4,33 +4,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Assistant Coach - Test</title>
+  <title>Test</title>
   <style>
-    body { font-family: Arial; background:#0f172a; color:white; padding:30px; text-align:center; }
-    button { padding:25px; font-size:1.5em; margin:15px; width:80%; border-radius:12px; background:#22c55e; color:black; }
+    body { font-family: Arial; background:#0f172a; color:white; padding:40px; text-align:center; }
+    button { padding:30px; font-size:1.8em; margin:20px; width:90%; border-radius:12px; background:#22c55e; color:black; }
   </style>
 </head>
 <body>
-  <h1>Assistant Coach - Test Version</h1>
-  
-  <button onclick="testButton()">Test Button - Click Me</button>
-  <button onclick="createNewTeam()">+ New Team</button>
+  <h1>Test Version</h1>
+  <button onclick="test1()">1. Click Me - New Team</button>
+  <button onclick="test2()">2. Click Me - Import</button>
 
-  <div id="output" style="margin-top:30px; font-size:1.3em;"></div>
+  <div id="output" style="margin-top:40px; font-size:1.4em;"></div>
 
   <script>
-    console.log("Test script loaded");
+    console.log("✅ JavaScript is running");
 
-    function testButton() {
-      alert("✅ Button works!");
-      document.getElementById("output").innerHTML += "<p>Button clicked successfully!</p>";
+    function test1() {
+      alert("✅ New Team button works!");
+      document.getElementById("output").innerHTML += "<p>New Team button clicked!</p>";
     }
 
-    function createNewTeam() {
-      const name = prompt("Team name?", "RA BLK 13U");
-      if (name) {
-        document.getElementById("output").innerHTML += `<p>Team created: ${name}</p>`;
-      }
+    function test2() {
+      alert("✅ Import button works!");
+      document.getElementById("output").innerHTML += "<p>Import button clicked!</p>";
     }
   </script>
 </body>
