@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Assistant Coach">
   <meta name="theme-color" content="#22c55e">
-  
+ 
   <!-- PWA Manifest -->
   <link rel="manifest" href="data:application/manifest+json,{
     &quot;name&quot;:&quot;Assistant Coach ⚾&quot;,
@@ -39,29 +39,38 @@
 <body>
   <div class="container">
     <h1>Assistant Coach ⚾</h1>
-    <!-- Backup -->
+
+    <!-- Backup & Restore -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <h2>Backup & Restore</h2>
       <button onclick="copyBackupToClipboard()" style="background:#eab308;color:black;">📋 COPY BACKUP TO CLIPBOARD</button>
       <button onclick="downloadBackup()">⬇️ Download Backup</button>
+      <button onclick="document.getElementById('restoreInput').click()" style="background:#22c55e;color:black;">⬆️ Restore from Backup</button>
+      <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreBackup(event)">
     </div>
+
     <!-- Team Management -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <select id="teamSelect" onchange="switchTeam()"></select>
       <button onclick="createNewTeam()">+ New Team</button>
       <button onclick="removeCurrentTeam()">🗑️ Remove Team</button>
     </div>
+
     <!-- Import -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <input type="file" id="csvFile" accept=".csv" style="width:100%;margin-bottom:10px;">
       <button onclick="importNewSeason()" style="background:#3b82f6;">📤 Import GameChanger CSV</button>
     </div>
+
     <div id="seasonSelector" style="display:none;background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <select id="seasonSelect" onchange="switchSeason()"></select>
     </div>
+
     <div id="summarySection" style="background:#334155;padding:18px;border-radius:12px;text-align:center;font-size:1.4em;margin:15px 0;display:none;"></div>
+
     <div id="playerList"></div>
   </div>
+
   <!-- Player Modal -->
   <div id="playerModal" class="modal">
     <div class="modal-content">
@@ -74,6 +83,7 @@
       </div>
     </div>
   </div>
+
   <script>
     let allTeams = {};
     let currentTeam = "";
@@ -82,18 +92,22 @@
     let posChart = null;
     let hittingChart = null;
     const STORAGE_KEY = "AssistantCoach_Full_v2";
+
     window.onload = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) allTeams = JSON.parse(saved);
       updateTeamSelector();
     };
+
     function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(allTeams)); }
+
     function copyBackupToClipboard() {
       if (Object.keys(allTeams).length === 0) return alert("No data yet");
       navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => {
         alert("✅ Backup copied to clipboard!\nPaste into Notes app and save.");
       });
     }
+
     function downloadBackup() {
       if (Object.keys(allTeams).length === 0) return alert("No data");
       const dataStr = JSON.stringify(allTeams, null, 2);
@@ -103,10 +117,33 @@
       a.href = url; a.download = `AssistantCoach_Backup_${new Date().toISOString().slice(0,10)}.json`;
       a.click(); URL.revokeObjectURL(url);
     }
+
+    function restoreBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          allTeams = JSON.parse(e.target.result);
+          updateTeamSelector();
+          if (Object.keys(allTeams).length > 0) {
+            currentTeam = Object.keys(allTeams)[0];
+            loadCurrentView();
+          }
+          saveData();
+          alert("✅ Backup restored successfully!");
+        } catch(err) {
+          alert("❌ Invalid backup file");
+        }
+      };
+      reader.readAsText(file);
+    }
+
     function createNewTeam() {
       const name = prompt("New team name:", "RA BLK 13U");
       if (name) { allTeams[name] = {}; currentTeam = name; updateTeamSelector(); saveData(); }
     }
+
     function updateTeamSelector() {
       const sel = document.getElementById("teamSelect");
       sel.innerHTML = "";
@@ -117,13 +154,16 @@
         sel.appendChild(opt);
       });
     }
+
     function switchTeam() { currentTeam = document.getElementById("teamSelect").value; if (currentTeam) loadCurrentView(); }
+
     function importNewSeason() {
       if (!currentTeam) return alert("Create/select a team first");
       const file = document.getElementById("csvFile").files[0];
       if (!file) return alert("Select CSV file");
       const seasonName = prompt("Season name:", "Spring 2026");
       if (!seasonName) return;
+
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
@@ -158,8 +198,10 @@
               posRF: parseFloat(row["RF"] || row["DEF_RF"] || 0),
             };
           }).filter(p => p);
+
           if (!allTeams[currentTeam]) allTeams[currentTeam] = {};
           allTeams[currentTeam][seasonName] = seasonPlayers;
+
           currentView = seasonName;
           updateSeasonSelector();
           loadCurrentView();
@@ -168,6 +210,7 @@
         }
       });
     }
+
     function updateSeasonSelector() {
       const sel = document.getElementById("seasonSelect");
       sel.innerHTML = '<option value="Career">🏆 Career</option>';
@@ -180,10 +223,13 @@
       }
       document.getElementById("seasonSelector").style.display = "block";
     }
+
     function switchSeason() { currentView = document.getElementById("seasonSelect").value; loadCurrentView(); }
+
     function loadCurrentView() {
       if (!currentTeam) return;
       const teamSeasons = allTeams[currentTeam] || {};
+
       if (currentView === "Career") {
         const map = {};
         Object.values(teamSeasons).flat().forEach(p => {
@@ -196,10 +242,12 @@
       } else {
         players = teamSeasons[currentView] || [];
       }
+
       players.sort((a,b) => (b.atBats ? b.hits/b.atBats : 0) - (a.atBats ? a.hits/a.atBats : 0));
       renderSummary();
       renderRoster();
     }
+
     function renderSummary() {
       let hr=0, rbi=0, ab=0, h=0;
       players.forEach(p=>{hr+=p.homeRuns||0; rbi+=p.rbis||0; ab+=p.atBats||0; h+=p.hits||0;});
@@ -207,13 +255,16 @@
       document.getElementById("summarySection").innerHTML = `Team AVG: <strong>${avg}</strong> | HR: <strong>${hr}</strong> | RBI: <strong>${rbi}</strong>`;
       document.getElementById("summarySection").style.display = "block";
     }
+
     function renderRoster() {
       const container = document.getElementById("playerList");
       container.innerHTML = `<h2>${currentTeam} — ${currentView} (${players.length} players)</h2>`;
+
       players.forEach((p, i) => {
         const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
         const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
         const bo = p.battingOrder ? `#${p.battingOrder}` : "—";
+
         const div = document.createElement("div");
         div.className = "player-card";
         div.innerHTML = `
@@ -227,22 +278,27 @@
         container.appendChild(div);
       });
     }
+
     function showProfile(i) {
       const p = players[i];
       const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
       const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
       const ops = (parseFloat(obp) + (p.atBats ? (p.hits + 2*p.homeRuns)/p.atBats : 0)).toFixed(2);
       const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
+
       let pitchingHTML = p.inningsPitched > 0 ? `
         <p><strong>IP:</strong> ${p.inningsPitched.toFixed(1)} | <strong>ERA:</strong> ${era} | <strong>WHIP:</strong> ${((p.hits + p.walks)/p.inningsPitched).toFixed(2)}</p>
       ` : "";
+
       document.getElementById("modalName").textContent = `#${p.number} ${p.name}`;
       document.getElementById("modalBody").innerHTML = `
         <p>GP: ${p.gp} | AVG: ${avg} | OBP: ${obp} | OPS: ${ops} | BO: <strong>${p.battingOrder ? "#"+p.battingOrder : "—"}</strong></p>
         <p>HR: ${p.homeRuns} | RBI: ${p.rbis} | BB: ${p.walks} | SO: ${p.strikeouts}</p>
         ${pitchingHTML}
       `;
+
       document.getElementById("playerModal").style.display = "block";
+
       setTimeout(() => {
         const positions = [
           {name:"P", val:p.posP}, {name:"C", val:p.posC}, {name:"1B", val:p.pos1B},
@@ -251,6 +307,7 @@
         ];
         const totalPos = positions.reduce((a,b)=>a+b.val,0);
         const filteredPos = positions.filter(pos => pos.val > 0.5);
+
         if (posChart) posChart.destroy();
         posChart = new Chart(document.getElementById("posChart"), {
           type: 'pie',
@@ -268,9 +325,11 @@
           },
           plugins: [ChartDataLabels]
         });
+
         const singles = Math.max(0, p.hits - p.homeRuns);
         const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
         const totalHitting = (p.homeRuns||0) + singles + (p.walks||0) + (p.strikeouts||0) + otherOuts;
+
         if (hittingChart) hittingChart.destroy();
         hittingChart = new Chart(document.getElementById("hittingChart"), {
           type: 'pie',
@@ -293,6 +352,7 @@
         });
       }, 300);
     }
+
     function closeModal() { document.getElementById("playerModal").style.display = "none"; }
   </script>
 </body>
