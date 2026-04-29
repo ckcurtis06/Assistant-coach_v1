@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,6 +70,7 @@
   </div>
 
   <script>
+    // Full stable code from before
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -267,13 +269,11 @@
       const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
       const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
       const ops = (parseFloat(obp) + (p.atBats ? (p.hits + 2*p.homeRuns)/p.atBats : 0)).toFixed(2);
-      const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
 
       document.getElementById("modalName").textContent = `#${p.number} ${p.name}`;
       document.getElementById("modalBody").innerHTML = `
         <p>GP: ${p.gp} | AVG: ${avg} | OBP: ${obp} | OPS: ${ops} | BO: <strong>${p.battingOrder ? "#"+p.battingOrder : "—"}</strong></p>
         <p>HR: ${p.homeRuns} | RBI: ${p.rbis} | BB: ${p.walks} | SO: ${p.strikeouts}</p>
-        ${p.inningsPitched > 0 ? `<p>IP: ${p.inningsPitched.toFixed(1)} | ERA: ${era}</p>` : ""}
       `;
 
       document.getElementById("playerModal").style.display = "block";
