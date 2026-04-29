@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Assistant Coach">
   <meta name="theme-color" content="#22c55e">
  
-  <!-- Updated Manifest with Baseball Icon -->
+  <!-- Strong Manifest with Direct Baseball Icon -->
   <link rel="manifest" href="data:application/manifest+json,{
     &quot;name&quot;:&quot;Assistant Coach ⚾&quot;,
     &quot;short_name&quot;:&quot;Asst Coach&quot;,
@@ -110,6 +110,7 @@
   </div>
 
   <script>
+    // [All your previous JavaScript code - unchanged]
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -323,6 +324,8 @@
         container.appendChild(div);
       });
     }
+
+    // ... (the rest of your showProfile, switchTab, renderTeamTable, sortTable, removeCurrentTeam functions are unchanged) ...
 
     function showProfile(i) {
       const p = players[i];
