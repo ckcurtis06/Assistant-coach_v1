@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -297,6 +298,9 @@
       players.forEach((p, i) => {
         const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
         const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
+        const slg = p.atBats ? ((p.hits + p.homeRuns) / p.atBats).toFixed(3) : ".000";
+        const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
+        const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
         const bo = p.battingOrder ? `#${p.battingOrder}` : "—";
 
         const div = document.createElement("div");
@@ -305,7 +309,8 @@
           <div class="number">#${p.number}</div>
           <div style="flex:1">
             <strong style="font-size:1.45em;">${p.name}</strong><br>
-            GP: ${p.gp} | AVG: <strong>${avg}</strong> | OBP: ${obp} | H: <strong>${p.hits}</strong> | BO: <strong>${bo}</strong>
+            GP: ${p.gp} | AVG: <strong>${avg}</strong> | OBP: ${obp} | SLG: ${slg} | H: <strong>${p.hits}</strong><br>
+            K%: ${kPct} | BB%: ${bbPct} | BO: <strong>${bo}</strong>
           </div>
         `;
         div.onclick = () => showProfile(i);
@@ -317,7 +322,10 @@
       const p = players[i];
       const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
       const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
-      const ops = (parseFloat(obp) + (p.atBats ? (p.hits + 2*p.homeRuns)/p.atBats : 0)).toFixed(2);
+      const slg = p.atBats ? ((p.hits + p.homeRuns) / p.atBats).toFixed(3) : ".000";
+      const ops = (parseFloat(obp) + parseFloat(slg)).toFixed(2);
+      const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
+      const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
       const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
 
       let pitchingHTML = p.inningsPitched > 0 ? `
@@ -326,8 +334,8 @@
 
       document.getElementById("modalName").textContent = `#${p.number} ${p.name}`;
       document.getElementById("modalBody").innerHTML = `
-        <p>GP: ${p.gp} | AVG: ${avg} | OBP: ${obp} | H: <strong>${p.hits}</strong> | OPS: ${ops} | BO: <strong>${p.battingOrder ? "#"+p.battingOrder : "—"}</strong></p>
-        <p>HR: ${p.homeRuns} | RBI: ${p.rbis} | BB: ${p.walks} | SO: ${p.strikeouts}</p>
+        <p>GP: ${p.gp} | AVG: ${avg} | OBP: ${obp} | SLG: ${slg} | OPS: ${ops} | H: <strong>${p.hits}</strong> | BO: <strong>${p.battingOrder ? "#"+p.battingOrder : "—"}</strong></p>
+        <p>HR: ${p.homeRuns} | RBI: ${p.rbis} | BB: ${p.walks} (${bbPct}) | SO: ${p.strikeouts} (${kPct})</p>
         ${pitchingHTML}
       `;
 
@@ -404,31 +412,37 @@
         <th onclick="sortTable(2)">GP</th>
         <th onclick="sortTable(3)">AVG</th>
         <th onclick="sortTable(4)">H</th>
-        <th onclick="sortTable(5)">OBP</th>
-        <th onclick="sortTable(6)">OPS</th>
-        <th onclick="sortTable(7)">BO</th>
-        <th onclick="sortTable(8)">HR</th>
-        <th onclick="sortTable(9)">RBI</th>
-        <th onclick="sortTable(10)">BB</th>
-        <th onclick="sortTable(11)">SO</th>
-        <th onclick="sortTable(12)">IP</th>
-        <th onclick="sortTable(13)">ERA</th>
-        <th onclick="sortTable(14)">WHIP</th>
-        <th onclick="sortTable(15)">P%</th>
-        <th onclick="sortTable(16)">C%</th>
-        <th onclick="sortTable(17)">1B%</th>
-        <th onclick="sortTable(18)">2B%</th>
-        <th onclick="sortTable(19)">3B%</th>
-        <th onclick="sortTable(20)">SS%</th>
-        <th onclick="sortTable(21)">LF%</th>
-        <th onclick="sortTable(22)">CF%</th>
-        <th onclick="sortTable(23)">RF%</th>
+        <th onclick="sortTable(5)">SLG</th>
+        <th onclick="sortTable(6)">OBP</th>
+        <th onclick="sortTable(7)">OPS</th>
+        <th onclick="sortTable(8)">BO</th>
+        <th onclick="sortTable(9)">HR</th>
+        <th onclick="sortTable(10)">RBI</th>
+        <th onclick="sortTable(11)">BB</th>
+        <th onclick="sortTable(12)">BB%</th>
+        <th onclick="sortTable(13)">SO</th>
+        <th onclick="sortTable(14)">K%</th>
+        <th onclick="sortTable(15)">IP</th>
+        <th onclick="sortTable(16)">ERA</th>
+        <th onclick="sortTable(17)">WHIP</th>
+        <th onclick="sortTable(18)">P%</th>
+        <th onclick="sortTable(19)">C%</th>
+        <th onclick="sortTable(20)">1B%</th>
+        <th onclick="sortTable(21)">2B%</th>
+        <th onclick="sortTable(22)">3B%</th>
+        <th onclick="sortTable(23)">SS%</th>
+        <th onclick="sortTable(24)">LF%</th>
+        <th onclick="sortTable(25)">CF%</th>
+        <th onclick="sortTable(26)">RF%</th>
       </tr></thead><tbody>`;
 
       players.forEach(p => {
         const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
+        const slg = p.atBats ? ((p.hits + p.homeRuns) / p.atBats).toFixed(3) : ".000";
         const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
-        const ops = (parseFloat(obp) + (p.atBats ? (p.hits + 2*p.homeRuns)/p.atBats : 0)).toFixed(2);
+        const ops = (parseFloat(obp) + parseFloat(slg)).toFixed(2);
+        const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
+        const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
         const bo = p.battingOrder ? p.battingOrder : "—";
         const ip = p.inningsPitched ? p.inningsPitched.toFixed(1) : "—";
         const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
@@ -436,8 +450,8 @@
         const totalPos = (p.posP + p.posC + p.pos1B + p.pos2B + p.pos3B + p.posSS + p.posLF + p.posCF + p.posRF) || 1;
 
         html += `<tr>
-          <td>#${p.number}</td><td>${p.name}</td><td>${p.gp}</td><td>${avg}</td><td>${p.hits}</td><td>${obp}</td><td>${ops}</td><td>${bo}</td>
-          <td>${p.homeRuns}</td><td>${p.rbis}</td><td>${p.walks}</td><td>${p.strikeouts}</td>
+          <td>#${p.number}</td><td>${p.name}</td><td>${p.gp}</td><td>${avg}</td><td>${p.hits}</td><td>${slg}</td><td>${obp}</td><td>${ops}</td><td>${bo}</td>
+          <td>${p.homeRuns}</td><td>${p.rbis}</td><td>${p.walks}</td><td>${bbPct}</td><td>${p.strikeouts}</td><td>${kPct}</td>
           <td>${ip}</td><td>${era}</td><td>${whip}</td>
           <td>${Math.round(p.posP/totalPos*100)}%</td><td>${Math.round(p.posC/totalPos*100)}%</td>
           <td>${Math.round(p.pos1B/totalPos*100)}%</td><td>${Math.round(p.pos2B/totalPos*100)}%</td>
