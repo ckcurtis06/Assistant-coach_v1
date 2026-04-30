@@ -116,7 +116,7 @@
   </div>
 
   <script>
-    // ==================== ALL YOUR PREVIOUS CODE - 100% UNCHANGED ====================
+    // === ALL PREVIOUS CODE UNCHANGED ===
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -527,7 +527,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== IMPROVED LINEUP TRACKER ====================
+    // ==================== LINEUP TRACKER WITH IMPROVED SUMMARY ====================
     let lineupGames = [];
 
     function renderLineupTracker() {
@@ -536,7 +536,7 @@
         <button onclick="addNewLineupGame()" style="background:#22c55e;margin-bottom:15px;">+ Add Game Box Score Photo</button>`;
 
       if (lineupGames.length === 0) {
-        html += `<p style="color:#94a3b8;">Upload box score photos. The app will attempt to read the lineup.</p>`;
+        html += `<p style="color:#94a3b8;">Upload box score photos. The app will attempt to read the lineup and show summary stats.</p>`;
       } else {
         lineupGames.forEach((game, i) => {
           html += `
@@ -549,35 +549,32 @@
             </div>`;
         });
 
-        // Improved Summary Table
-        html += `<h3 style="margin-top:30px;">Batting Order Summary (All Games Combined)</h3>`;
-        html += generateImprovedLineupSummary();
+        html += `<h3 style="margin-top:30px;">Batting Order Summary Across All Games</h3>`;
+        html += generateLineupSummaryTable();
       }
       container.innerHTML = html;
     }
 
-    function generateImprovedLineupSummary() {
-      let html = `<table><thead><tr><th>Spot</th><th>Player</th><th>Games</th><th>%</th></tr></thead><tbody>`;
+    function generateLineupSummaryTable() {
+      let html = `<table><thead><tr><th>Lineup Spot</th><th>Player</th><th>Games</th><th>% of Games</th></tr></thead><tbody>`;
 
-      const spotData = {};
+      const spotStats = {};
 
       lineupGames.forEach(game => {
         if (game.lineup && game.lineup.length > 0) {
           game.lineup.forEach((player, index) => {
-            const spot = index + 1;
-            if (!spotData[spot]) spotData[spot] = {};
-            if (!spotData[spot][player]) spotData[spot][player] = 0;
-            spotData[spot][player]++;
+            const spot = (index + 1).toString();
+            if (!spotStats[spot]) spotStats[spot] = {};
+            if (!spotStats[spot][player]) spotStats[spot][player] = 0;
+            spotStats[spot][player]++;
           });
         }
       });
 
-      Object.keys(spotData).sort((a,b) => Number(a) - Number(b)).forEach(spot => {
-        const totalInSpot = Object.values(spotData[spot]).reduce((a,b) => a + b, 0);
-        const sortedPlayers = Object.entries(spotData[spot]).sort((a,b) => b[1] - a[1]);
-
-        sortedPlayers.forEach(([player, count]) => {
-          const pct = ((count / lineupGames.length) * 100).toFixed(1);
+      Object.keys(spotStats).sort((a,b) => Number(a) - Number(b)).forEach(spot => {
+        const entries = Object.entries(spotStats[spot]).sort((a,b) => b[1] - a[1]);
+        entries.forEach(([player, count]) => {
+          const pct = (count / lineupGames.length * 100).toFixed(1);
           html += `<tr><td>${spot}</td><td>${player}</td><td>${count}</td><td>${pct}%</td></tr>`;
         });
       });
@@ -620,7 +617,7 @@
             });
 
             renderLineupTracker();
-            alert("Photo processed! Check the summary table below.");
+            alert("✅ Photo processed! Check the summary table below.");
           } catch(err) {
             alert("OCR failed, but photo was saved.");
             lineupGames.push({
