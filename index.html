@@ -51,6 +51,9 @@
     tr:hover { background:#334155; }
     .sort-asc::after { content: " ↑"; }
     .sort-desc::after { content: " ↓"; }
+
+    .lineup-game { background:#1e2937; padding:15px; margin:10px 0; border-radius:12px; }
+    .photo-preview { max-width:100%; max-height:300px; border-radius:8px; margin:10px 0; }
   </style>
 </head>
 <body>
@@ -120,6 +123,7 @@
     let currentSort = { col: -1, dir: 1 };
     const STORAGE_KEY = "AssistantCoach_Full_v2";
 
+    // ==================== ALL YOUR PREVIOUS CODE REMAINS UNCHANGED ====================
     window.onload = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) allTeams = JSON.parse(saved);
@@ -128,7 +132,6 @@
 
     function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(allTeams)); }
 
-    // ==================== ALL YOUR PREVIOUS CODE (100% UNCHANGED) ====================
     function copyBackupToClipboard() {
       if (Object.keys(allTeams).length === 0) return alert("No data yet");
       navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => {
@@ -407,14 +410,17 @@
       document.getElementById("tabCards").classList.toggle("active", n === 0);
       document.getElementById("tabTable").classList.toggle("active", n === 1);
       document.getElementById("tabLineup").classList.toggle("active", n === 2);
+
       document.getElementById("playerList").style.display = n === 0 ? "block" : "none";
       document.getElementById("teamTableContainer").style.display = n === 1 ? "block" : "none";
       document.getElementById("lineupTrackerContainer").style.display = n === 2 ? "block" : "none";
+
       if (n === 1) renderTeamTable();
       if (n === 2) renderLineupTracker();
     }
 
     function renderTeamTable() {
+      // ... (your existing renderTeamTable code unchanged) ...
       const container = document.getElementById("teamTableContainer");
       let html = `<h2>${currentTeam} — ${currentView} Team Stats Table</h2>`;
       html += `<table id="statsTable"><thead><tr>
@@ -520,17 +526,71 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== NEW: LINEUP TRACKER (Added Only) ====================
+    // ==================== NEW LINEUP TRACKER FUNCTIONALITY ====================
+    let lineupGames = [];
+
     function renderLineupTracker() {
       const container = document.getElementById("lineupTrackerContainer");
-      container.innerHTML = `
-        <h2>Lineup Tracker - ${currentTeam}</h2>
-        <p>Coming in next update: Upload box score photos and track batting order percentages per spot.</p>
-        <p>For now, this tab is reserved. All other features remain fully functional.</p>
-      `;
+      let html = `<h2>Lineup Tracker - ${currentTeam}</h2>
+        <button onclick="addNewLineupGame()" style="background:#22c55e;">+ Add New Game Lineup</button><br><br>`;
+
+      if (lineupGames.length === 0) {
+        html += `<p>No games added yet. Click above to start tracking lineups.</p>`;
+      } else {
+        lineupGames.forEach((game, index) => {
+          html += `
+            <div class="lineup-game">
+              <strong>${game.date} vs ${game.opponent}</strong><br>
+              ${game.photo ? `<img src="${game.photo}" class="photo-preview">` : ''}
+              <p><strong>Lineup:</strong> ${game.lineup.join(" → ")}</p>
+              <button onclick="deleteLineupGame(${index})" style="background:#ef4444;">Delete</button>
+            </div>`;
+        });
+      }
+
+      container.innerHTML = html;
     }
 
-    // Initialize new tab
+    function addNewLineupGame() {
+      const date = prompt("Game Date (e.g. 2026-04-30):", new Date().toISOString().slice(0,10));
+      const opponent = prompt("Opponent:", "Opponent Name");
+      if (!date || !opponent) return;
+
+      const lineupStr = prompt("Enter lineup in order (comma separated):\nExample: Bryce Lord, Briggs Curtis, Rhone Story,...", "");
+      if (!lineupStr) return;
+
+      const lineup = lineupStr.split(",").map(p => p.trim()).filter(p => p);
+
+      const photoInput = document.createElement("input");
+      photoInput.type = "file";
+      photoInput.accept = "image/*";
+      photoInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(ev) {
+            lineupGames.push({
+              date: date,
+              opponent: opponent,
+              lineup: lineup,
+              photo: ev.target.result
+            });
+            renderLineupTracker();
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      photoInput.click();
+    }
+
+    function deleteLineupGame(index) {
+      if (confirm("Delete this game?")) {
+        lineupGames.splice(index, 1);
+        renderLineupTracker();
+      }
+    }
+
+    // Call this when switching to the tab
     function switchTab(n) {
       document.getElementById("tabCards").classList.toggle("active", n === 0);
       document.getElementById("tabTable").classList.toggle("active", n === 1);
