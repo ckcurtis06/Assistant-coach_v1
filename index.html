@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -116,7 +115,7 @@
   </div>
 
   <script>
-    // === ALL PREVIOUS CODE UNCHANGED ===
+    // ALL YOUR PREVIOUS CODE REMAINS 100% UNCHANGED
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -527,7 +526,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER WITH IMPROVED SUMMARY ====================
+    // ==================== IMPROVED LINEUP TRACKER ====================
     let lineupGames = [];
 
     function renderLineupTracker() {
@@ -536,7 +535,7 @@
         <button onclick="addNewLineupGame()" style="background:#22c55e;margin-bottom:15px;">+ Add Game Box Score Photo</button>`;
 
       if (lineupGames.length === 0) {
-        html += `<p style="color:#94a3b8;">Upload box score photos. The app will attempt to read the lineup and show summary stats.</p>`;
+        html += `<p style="color:#94a3b8;">Upload box score photos. The app will try to read the lineup automatically.</p>`;
       } else {
         lineupGames.forEach((game, i) => {
           html += `
@@ -544,7 +543,7 @@
               <strong>${game.date} vs ${game.opponent}</strong><br>
               ${game.photo ? `<img src="${game.photo}" class="photo-preview">` : ''}
               <div class="ocr-result">${game.extractedText || 'No text extracted'}</div>
-              <p><strong>Lineup:</strong> ${game.lineup && game.lineup.length ? game.lineup.join(" → ") : 'Not parsed yet'}</p>
+              <p><strong>Parsed Lineup:</strong> ${game.lineup && game.lineup.length ? game.lineup.join(" → ") : 'Not parsed yet'}</p>
               <button onclick="deleteLineupGame(${i})" style="background:#ef4444;">Delete Game</button>
             </div>`;
         });
@@ -556,7 +555,7 @@
     }
 
     function generateLineupSummaryTable() {
-      let html = `<table><thead><tr><th>Lineup Spot</th><th>Player</th><th>Games</th><th>% of Games</th></tr></thead><tbody>`;
+      let html = `<table><thead><tr><th>Spot</th><th>Player</th><th>Games</th><th>%</th></tr></thead><tbody>`;
 
       const spotStats = {};
 
@@ -608,16 +607,33 @@
 
             const extracted = result.data.text.trim();
 
+            // Improved parsing - look for player names with numbers
+            let lineup = [];
+            const lines = extracted.split('\n');
+            for (let line of lines) {
+              const match = line.match(/([A-Za-z\s]+)#?(\d+)/);
+              if (match && match[1]) {
+                const name = match[1].trim();
+                if (name.length > 3) lineup.push(name);
+              }
+            }
+
+            // Fallback: take first 9-10 names if parsing failed
+            if (lineup.length < 5) {
+              const nameMatches = extracted.match(/[A-Z][a-z]+ [A-Z][a-z]+/g) || [];
+              lineup = nameMatches.slice(0, 9);
+            }
+
             lineupGames.push({
               date: date,
               opponent: opponent,
               photo: photoData,
               extractedText: extracted,
-              lineup: [] 
+              lineup: lineup
             });
 
             renderLineupTracker();
-            alert("✅ Photo processed! Check the summary table below.");
+            alert("✅ Photo processed! Lineup extracted.");
           } catch(err) {
             alert("OCR failed, but photo was saved.");
             lineupGames.push({
