@@ -55,7 +55,7 @@
 
     .lineup-game { background:#1e2937; padding:15px; margin:10px 0; border-radius:12px; }
     .photo-preview { max-width:100%; max-height:400px; border-radius:8px; margin:10px 0; }
-    .ocr-result { background:#334155; padding:10px; border-radius:8px; white-space:pre-wrap; font-size:0.95em; }
+    .ocr-result { background:#334155; padding:10px; border-radius:8px; white-space:pre-wrap; font-size:0.95em; margin:8px 0; }
   </style>
 </head>
 <body>
@@ -116,7 +116,7 @@
   </div>
 
   <script>
-    // === ALL YOUR PREVIOUS CODE IS 100% UNCHANGED BELOW THIS LINE ===
+    // ==================== ALL YOUR PREVIOUS CODE - 100% UNCHANGED ====================
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -527,7 +527,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER (NEW) ====================
+    // ==================== FULL LINEUP TRACKER ====================
     let lineupGames = [];
 
     function renderLineupTracker() {
@@ -536,15 +536,15 @@
         <button onclick="addNewLineupGame()" style="background:#22c55e;margin-bottom:15px;">+ Add Game Box Score Photo</button>`;
 
       if (lineupGames.length === 0) {
-        html += `<p style="color:#94a3b8;">Upload box score photos here. The app will try to read the lineup automatically.</p>`;
+        html += `<p style="color:#94a3b8;">Upload box score photos. The app will attempt to read the lineup.</p>`;
       } else {
         lineupGames.forEach((game, i) => {
           html += `
             <div class="lineup-game">
               <strong>${game.date} vs ${game.opponent}</strong><br>
               ${game.photo ? `<img src="${game.photo}" class="photo-preview">` : ''}
-              <div class="ocr-result">${game.extractedText || 'No text extracted yet'}</div>
-              <p><strong>Detected Lineup:</strong> ${game.lineup ? game.lineup.join(" → ") : 'Not parsed'}</p>
+              <div class="ocr-result">${game.extractedText || 'No text extracted'}</div>
+              <p><strong>Lineup:</strong> ${game.lineup && game.lineup.length ? game.lineup.join(" → ") : 'Not parsed yet'}</p>
               <button onclick="deleteLineupGame(${i})" style="background:#ef4444;">Delete Game</button>
             </div>`;
         });
@@ -553,7 +553,7 @@
     }
 
     async function addNewLineupGame() {
-      const date = prompt("Game Date:", new Date().toISOString().slice(0,10));
+      const date = prompt("Game Date (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
       const opponent = prompt("Opponent Name:", "");
       if (!date || !opponent) return;
 
@@ -568,8 +568,7 @@
         reader.onload = async function(ev) {
           const photoData = ev.target.result;
 
-          // Show loading
-          alert("Processing photo with OCR... This may take 10-30 seconds.");
+          alert("Processing photo with OCR... (this can take 10-30 seconds)");
 
           try {
             const worker = await Tesseract.createWorker('eng');
@@ -583,13 +582,13 @@
               opponent: opponent,
               photo: photoData,
               extractedText: extracted,
-              lineup: [] // We'll improve parsing later
+              lineup: [] 
             });
 
             renderLineupTracker();
-            alert("Photo processed! Review the extracted text above.");
+            alert("Photo uploaded and processed! Review the extracted text.");
           } catch(err) {
-            alert("OCR failed. Photo saved for manual review.");
+            alert("OCR processing failed, but photo was saved.");
             lineupGames.push({
               date: date,
               opponent: opponent,
