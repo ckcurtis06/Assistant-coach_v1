@@ -527,7 +527,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== FULL LINEUP TRACKER ====================
+    // ==================== IMPROVED LINEUP TRACKER ====================
     let lineupGames = [];
 
     function renderLineupTracker() {
@@ -548,8 +548,42 @@
               <button onclick="deleteLineupGame(${i})" style="background:#ef4444;">Delete Game</button>
             </div>`;
         });
+
+        // Improved Summary Table
+        html += `<h3 style="margin-top:30px;">Batting Order Summary (All Games Combined)</h3>`;
+        html += generateImprovedLineupSummary();
       }
       container.innerHTML = html;
+    }
+
+    function generateImprovedLineupSummary() {
+      let html = `<table><thead><tr><th>Spot</th><th>Player</th><th>Games</th><th>%</th></tr></thead><tbody>`;
+
+      const spotData = {};
+
+      lineupGames.forEach(game => {
+        if (game.lineup && game.lineup.length > 0) {
+          game.lineup.forEach((player, index) => {
+            const spot = index + 1;
+            if (!spotData[spot]) spotData[spot] = {};
+            if (!spotData[spot][player]) spotData[spot][player] = 0;
+            spotData[spot][player]++;
+          });
+        }
+      });
+
+      Object.keys(spotData).sort((a,b) => Number(a) - Number(b)).forEach(spot => {
+        const totalInSpot = Object.values(spotData[spot]).reduce((a,b) => a + b, 0);
+        const sortedPlayers = Object.entries(spotData[spot]).sort((a,b) => b[1] - a[1]);
+
+        sortedPlayers.forEach(([player, count]) => {
+          const pct = ((count / lineupGames.length) * 100).toFixed(1);
+          html += `<tr><td>${spot}</td><td>${player}</td><td>${count}</td><td>${pct}%</td></tr>`;
+        });
+      });
+
+      html += `</tbody></table>`;
+      return html;
     }
 
     async function addNewLineupGame() {
@@ -568,7 +602,7 @@
         reader.onload = async function(ev) {
           const photoData = ev.target.result;
 
-          alert("Processing photo with OCR... (this can take 10-30 seconds)");
+          alert("Processing photo with OCR...");
 
           try {
             const worker = await Tesseract.createWorker('eng');
@@ -586,9 +620,9 @@
             });
 
             renderLineupTracker();
-            alert("Photo uploaded and processed! Review the extracted text.");
+            alert("Photo processed! Check the summary table below.");
           } catch(err) {
-            alert("OCR processing failed, but photo was saved.");
+            alert("OCR failed, but photo was saved.");
             lineupGames.push({
               date: date,
               opponent: opponent,
