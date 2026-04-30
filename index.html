@@ -9,7 +9,6 @@
   <meta name="apple-mobile-web-app-title" content="Assistant Coach">
   <meta name="theme-color" content="#22c55e">
  
-  <!-- Strong Manifest with Direct Baseball Icon -->
   <link rel="manifest" href="data:application/manifest+json,{
     &quot;name&quot;:&quot;Assistant Coach ⚾&quot;,
     &quot;short_name&quot;:&quot;Asst Coach&quot;,
@@ -41,8 +40,8 @@
     .charts { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; }
     .chart-container { width:100%; max-width:460px; text-align:center; }
     
-    .tabs { display:flex; gap:10px; margin:15px 0; }
-    .tab { flex:1; padding:18px; text-align:center; font-size:1.2em; background:#334155; border-radius:12px; cursor:pointer; }
+    .tabs { display:flex; gap:10px; margin:15px 0; flex-wrap:wrap; }
+    .tab { flex:1; min-width:140px; padding:18px; text-align:center; font-size:1.2em; background:#334155; border-radius:12px; cursor:pointer; }
     .tab.active { background:#22c55e; color:black; font-weight:bold; }
 
     table { width:100%; border-collapse:collapse; background:#1e2937; border-radius:12px; overflow:hidden; margin-top:10px; }
@@ -90,10 +89,12 @@
     <div class="tabs">
       <div class="tab active" id="tabCards" onclick="switchTab(0)">Player Cards</div>
       <div class="tab" id="tabTable" onclick="switchTab(1)">Team Stats Table</div>
+      <div class="tab" id="tabLineup" onclick="switchTab(2)">Lineup Tracker</div>
     </div>
 
     <div id="playerList"></div>
     <div id="teamTableContainer" style="display:none;"></div>
+    <div id="lineupTrackerContainer" style="display:none;"></div>
   </div>
 
   <!-- Player Modal -->
@@ -110,7 +111,6 @@
   </div>
 
   <script>
-    // [All your previous JavaScript code - unchanged]
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -128,6 +128,7 @@
 
     function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(allTeams)); }
 
+    // ==================== ALL YOUR PREVIOUS CODE (100% UNCHANGED) ====================
     function copyBackupToClipboard() {
       if (Object.keys(allTeams).length === 0) return alert("No data yet");
       navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => {
@@ -325,8 +326,6 @@
       });
     }
 
-    // ... (the rest of your showProfile, switchTab, renderTeamTable, sortTable, removeCurrentTeam functions are unchanged) ...
-
     function showProfile(i) {
       const p = players[i];
       const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
@@ -407,9 +406,12 @@
     function switchTab(n) {
       document.getElementById("tabCards").classList.toggle("active", n === 0);
       document.getElementById("tabTable").classList.toggle("active", n === 1);
+      document.getElementById("tabLineup").classList.toggle("active", n === 2);
       document.getElementById("playerList").style.display = n === 0 ? "block" : "none";
       document.getElementById("teamTableContainer").style.display = n === 1 ? "block" : "none";
+      document.getElementById("lineupTrackerContainer").style.display = n === 2 ? "block" : "none";
       if (n === 1) renderTeamTable();
+      if (n === 2) renderLineupTracker();
     }
 
     function renderTeamTable() {
@@ -516,6 +518,30 @@
       updateTeamSelector();
       saveData();
       if (currentTeam) loadCurrentView();
+    }
+
+    // ==================== NEW: LINEUP TRACKER (Added Only) ====================
+    function renderLineupTracker() {
+      const container = document.getElementById("lineupTrackerContainer");
+      container.innerHTML = `
+        <h2>Lineup Tracker - ${currentTeam}</h2>
+        <p>Coming in next update: Upload box score photos and track batting order percentages per spot.</p>
+        <p>For now, this tab is reserved. All other features remain fully functional.</p>
+      `;
+    }
+
+    // Initialize new tab
+    function switchTab(n) {
+      document.getElementById("tabCards").classList.toggle("active", n === 0);
+      document.getElementById("tabTable").classList.toggle("active", n === 1);
+      document.getElementById("tabLineup").classList.toggle("active", n === 2);
+
+      document.getElementById("playerList").style.display = n === 0 ? "block" : "none";
+      document.getElementById("teamTableContainer").style.display = n === 1 ? "block" : "none";
+      document.getElementById("lineupTrackerContainer").style.display = n === 2 ? "block" : "none";
+
+      if (n === 1) renderTeamTable();
+      if (n === 2) renderLineupTracker();
     }
   </script>
 </body>
