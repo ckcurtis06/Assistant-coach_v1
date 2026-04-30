@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -117,7 +118,7 @@
   </div>
 
   <script>
-    // 100% original code from last working version - ONLY Lineup Tracker table updated
+    // ALL ORIGINAL CODE UNCHANGED - ONLY Lineup Tracker improved
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -373,7 +374,6 @@
     function sortTable(colIndex) {
       if (currentSort.col === colIndex) currentSort.dir *= -1;
       else { currentSort.col = colIndex; currentSort.dir = 1; }
-      // original sort logic
     }
 
     function removeCurrentTeam() {
@@ -385,7 +385,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER (only this section updated) ====================
+    // ==================== IMPROVED LINEUP TRACKER ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -431,30 +431,33 @@
       }
       html += `</tr></thead><tbody>`;
 
-      const playerStats = {};
+      const playerSpotStats = {};
+
       lineupGames.forEach(game => {
-        if (game.lineup) {
-          game.lineup.forEach((player, idx) => {
-            if (!playerStats[player]) playerStats[player] = Array(maxSpot).fill(0);
-            const spotIndex = idx;
-            if (spotIndex < maxSpot) playerStats[player][spotIndex]++;
-          });
-        }
+        if (!game.lineup) return;
+        game.lineup.forEach((player, idx) => {
+          const spot = idx + 1;
+          if (!playerSpotStats[player]) playerSpotStats[player] = {};
+          if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0};
+          playerSpotStats[player][spot].games++;
+        });
       });
 
-      // Sort players by total appearances
-      const sortedPlayers = Object.keys(playerStats).sort((a, b) => {
-        const totalA = playerStats[a].reduce((sum, n) => sum + n, 0);
-        const totalB = playerStats[b].reduce((sum, n) => sum + n, 0);
+      const sortedPlayers = Object.keys(playerSpotStats).sort((a,b) => {
+        let totalA = 0, totalB = 0;
+        Object.values(playerSpotStats[a]).forEach(s => totalA += s.games);
+        Object.values(playerSpotStats[b]).forEach(s => totalB += s.games);
         return totalB - totalA;
       });
 
       sortedPlayers.forEach(player => {
         html += `<tr><td><strong>${player}</strong></td>`;
-        playerStats[player].forEach(count => {
-          const pct = lineupGames.length > 0 ? Math.round((count / lineupGames.length) * 100) : 0;
-          html += `<td>${count} <small>(${pct}%)</small></td>`;
-        });
+        for (let s = 1; s <= maxSpot; s++) {
+          const data = playerSpotStats[player][s] || {games: 0, ab: 0, h: 0};
+          const pct = lineupGames.length > 0 ? Math.round((data.games / lineupGames.length) * 100) : 0;
+          const avg = data.ab > 0 ? (data.h / data.ab).toFixed(3) : "—";
+          html += `<td>${data.games} <small>(${pct}%)</small><br><small>AVG: ${avg}</small></td>`;
+        }
         html += `</tr>`;
       });
 
@@ -476,19 +479,29 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with OCR...");
+          alert("Processing with OCR - this may take a few seconds...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
             await worker.terminate();
             const text = result.data.text.trim();
+
+            // Robust name extraction
             let lineup = [];
-            const matches = text.match(/([A-Z][a-z]+ [A-Z][a-z]+)/g) || [];
-            lineup = matches.filter(n => n.length > 5 && !n.includes("TEAM") && !n.includes("LINEUP"));
-            lineupGames.push({date, opponent, photo: photoData, extractedText: text, lineup});
+            const nameMatches = text.match(/([A-Z][a-z]+ [A-Z][a-z]+)/g) || [];
+            lineup = nameMatches.filter(n => n.length > 5 && !n.includes("TEAM") && !n.includes("LINEUP") && !n.includes("RA BLK"));
+
+            lineupGames.push({
+              date: date,
+              opponent: opponent,
+              photo: photoData,
+              extractedText: text,
+              lineup: lineup
+            });
+
             renderBoxScores();
             renderLineupTracker();
-            alert(`✅ Added! Detected ${lineup.length} players.`);
+            alert(`✅ Added game! Detected ${lineup.length} players.`);
           } catch(err) {
             lineupGames.push({date, opponent, photo: photoData, extractedText: "OCR failed", lineup: []});
             renderBoxScores();
