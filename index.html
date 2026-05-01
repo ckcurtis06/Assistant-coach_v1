@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -117,7 +118,7 @@
   </div>
 
   <script>
-    // EXACT LAST WORKING VERSION - ONLY Lineup Tracker table updated
+    // EXACT LAST WORKING VERSION WITH PLAYER NUMBERS + PIES + IMPROVED LINEUP TABLE
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -432,7 +433,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER WITH FULL PER-SPOT STATS ====================
+    // ==================== LINEUP TRACKER WITH FULL STATS ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -530,7 +531,7 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with OCR - this may take a few seconds...");
+          alert("Processing with OCR...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
