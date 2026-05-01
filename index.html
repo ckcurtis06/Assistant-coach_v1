@@ -117,7 +117,7 @@
   </div>
 
   <script>
-    // ALL ORIGINAL CODE UNCHANGED - ONLY Lineup Tracker improved with better stats parsing
+    // EXACT LAST WORKING VERSION - ONLY Lineup Tracker table updated
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -310,7 +310,55 @@
         ${p.inningsPitched > 0 ? `<p>IP: ${p.inningsPitched.toFixed(1)} | ERA: ${era}</p>` : ''}
       `;
       document.getElementById("playerModal").style.display = "block";
-      setTimeout(() => { /* charts unchanged */ }, 300);
+
+      setTimeout(() => {
+        const positions = [
+          {name:"P", val:p.posP}, {name:"C", val:p.posC}, {name:"1B", val:p.pos1B},
+          {name:"2B", val:p.pos2B}, {name:"3B", val:p.pos3B}, {name:"SS", val:p.posSS},
+          {name:"LF", val:p.posLF}, {name:"CF", val:p.posCF}, {name:"RF", val:p.posRF}
+        ];
+        const totalPos = positions.reduce((a,b)=>a+b.val,0);
+        const filteredPos = positions.filter(pos => pos.val > 0.5);
+
+        if (posChart) posChart.destroy();
+        posChart = new Chart(document.getElementById("posChart"), {
+          type: 'pie',
+          data: { labels: filteredPos.map(pos => pos.name),
+            datasets: [{ data: filteredPos.map(pos => pos.val), backgroundColor: ['#22c55e','#3b82f6','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'] }]
+          },
+          options: {
+            plugins: {
+              datalabels: {
+                formatter: (value) => totalPos > 0 ? Math.round((value / totalPos) * 100) + '%' : '',
+                color: '#fff', font: { weight: 'bold', size: 16 }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+
+        const singles = Math.max(0, p.hits - p.homeRuns);
+        const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
+        const totalHitting = (p.homeRuns||0) + singles + (p.walks||0) + (p.strikeouts||0) + otherOuts;
+
+        if (hittingChart) hittingChart.destroy();
+        hittingChart = new Chart(document.getElementById("hittingChart"), {
+          type: 'pie',
+          data: {
+            labels: ['HR', 'Singles', 'Walks', 'Strikeouts', 'Other Outs'],
+            datasets: [{ data: [p.homeRuns||0, singles, p.walks||0, p.strikeouts||0, otherOuts], backgroundColor: ['#ef4444', '#eab308', '#3b82f6', '#f97316', '#64748b'] }]
+          },
+          options: {
+            plugins: {
+              datalabels: {
+                formatter: (value) => totalHitting > 0 ? Math.round((value / totalHitting) * 100) + '%' : '',
+                color: '#fff', font: { weight: 'bold', size: 16 }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+      }, 300);
     }
 
     function closeModal() { document.getElementById("playerModal").style.display = "none"; }
@@ -384,7 +432,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== IMPROVED LINEUP TRACKER WITH BETTER STATS PARSING ====================
+    // ==================== LINEUP TRACKER WITH FULL PER-SPOT STATS ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -433,45 +481,12 @@
       const playerSpotStats = {};
 
       lineupGames.forEach(game => {
-        if (!game.lineup || game.lineup.length === 0) return;
-
-        // Improved parsing: try to extract stats for each player
-        const lines = game.extractedText.split('\n');
-        const playerData = {};
-
-        game.lineup.forEach(player => {
-          playerData[player] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
-        });
-
-        // Try to match players to their stat lines
-        lines.forEach(line => {
-          for (let player in playerData) {
-            if (line.includes(player)) {
-              // Look for numbers after the name (AB H BB SO pattern)
-              const numbers = line.match(/\d+/g);
-              if (numbers && numbers.length >= 4) {
-                playerData[player].ab += parseInt(numbers[0]) || 0;
-                playerData[player].h += parseInt(numbers[2]) || 0;  // rough index for H
-                playerData[player].bb += parseInt(numbers[3]) || 0;
-                playerData[player].so += parseInt(numbers[4]) || 0;
-              }
-              playerData[player].games++;
-              break;
-            }
-          }
-        });
-
-        // Assign to spots
+        if (!game.lineup) return;
         game.lineup.forEach((player, idx) => {
           const spot = idx + 1;
           if (!playerSpotStats[player]) playerSpotStats[player] = {};
           if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
-          const data = playerData[player] || {games: 1, ab: 0, h: 0, bb: 0, so: 0};
-          playerSpotStats[player][spot].games += data.games;
-          playerSpotStats[player][spot].ab += data.ab;
-          playerSpotStats[player][spot].h += data.h;
-          playerSpotStats[player][spot].bb += data.bb;
-          playerSpotStats[player][spot].so += data.so;
+          playerSpotStats[player][spot].games++;
         });
       });
 
