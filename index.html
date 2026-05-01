@@ -117,7 +117,7 @@
   </div>
 
   <script>
-    // ALL ORIGINAL CODE UNCHANGED - ONLY Lineup Tracker table improved with full stats
+    // ALL ORIGINAL CODE UNCHANGED - ONLY Lineup Tracker improved with better stats parsing
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -384,7 +384,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER WITH FULL PER-SPOT STATS ====================
+    // ==================== IMPROVED LINEUP TRACKER WITH BETTER STATS PARSING ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -434,11 +434,44 @@
 
       lineupGames.forEach(game => {
         if (!game.lineup || game.lineup.length === 0) return;
+
+        // Improved parsing: try to extract stats for each player
+        const lines = game.extractedText.split('\n');
+        const playerData = {};
+
+        game.lineup.forEach(player => {
+          playerData[player] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
+        });
+
+        // Try to match players to their stat lines
+        lines.forEach(line => {
+          for (let player in playerData) {
+            if (line.includes(player)) {
+              // Look for numbers after the name (AB H BB SO pattern)
+              const numbers = line.match(/\d+/g);
+              if (numbers && numbers.length >= 4) {
+                playerData[player].ab += parseInt(numbers[0]) || 0;
+                playerData[player].h += parseInt(numbers[2]) || 0;  // rough index for H
+                playerData[player].bb += parseInt(numbers[3]) || 0;
+                playerData[player].so += parseInt(numbers[4]) || 0;
+              }
+              playerData[player].games++;
+              break;
+            }
+          }
+        });
+
+        // Assign to spots
         game.lineup.forEach((player, idx) => {
           const spot = idx + 1;
           if (!playerSpotStats[player]) playerSpotStats[player] = {};
           if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
-          playerSpotStats[player][spot].games++;
+          const data = playerData[player] || {games: 1, ab: 0, h: 0, bb: 0, so: 0};
+          playerSpotStats[player][spot].games += data.games;
+          playerSpotStats[player][spot].ab += data.ab;
+          playerSpotStats[player][spot].h += data.h;
+          playerSpotStats[player][spot].bb += data.bb;
+          playerSpotStats[player][spot].so += data.so;
         });
       });
 
@@ -457,8 +490,8 @@
           const avg = data.ab > 0 ? (data.h / data.ab).toFixed(3) : "—";
           html += `<td>
             ${data.games} <small>(${pct}%)</small><br>
-            <small>AVG: ${avg}</small><br>
-            <small>H: ${data.h} | BB: ${data.bb} | SO: ${data.so}</small>
+            AVG: ${avg}<br>
+            H: ${data.h} | BB: ${data.bb} | SO: ${data.so}
           </td>`;
         }
         html += `</tr>`;
