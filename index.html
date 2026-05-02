@@ -45,7 +45,7 @@
     .tab.active { background:#22c55e; color:black; font-weight:bold; }
 
     table { width:100%; border-collapse:collapse; background:#1e2937; border-radius:12px; overflow:hidden; margin-top:10px; }
-    th, td { padding:12px 8px; text-align:center; border-bottom:1px solid #334155; }
+    th, td { padding:12px 8px; text-align:center; border-bottom:1px solid #334155; vertical-align:top; }
     th { background:#334155; cursor:pointer; user-select:none; }
     th:hover { background:#475569; }
     tr:hover { background:#334155; }
@@ -117,7 +117,7 @@
   </div>
 
   <script>
-    // ALL ORIGINAL CODE UNCHANGED - ONLY Lineup Tracker improved
+    // EXACT LAST WORKING VERSION WITH PLAYER NUMBERS + PIES + IMPROVED LINEUP TABLE
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -310,7 +310,55 @@
         ${p.inningsPitched > 0 ? `<p>IP: ${p.inningsPitched.toFixed(1)} | ERA: ${era}</p>` : ''}
       `;
       document.getElementById("playerModal").style.display = "block";
-      setTimeout(() => { /* charts unchanged */ }, 300);
+
+      setTimeout(() => {
+        const positions = [
+          {name:"P", val:p.posP}, {name:"C", val:p.posC}, {name:"1B", val:p.pos1B},
+          {name:"2B", val:p.pos2B}, {name:"3B", val:p.pos3B}, {name:"SS", val:p.posSS},
+          {name:"LF", val:p.posLF}, {name:"CF", val:p.posCF}, {name:"RF", val:p.posRF}
+        ];
+        const totalPos = positions.reduce((a,b)=>a+b.val,0);
+        const filteredPos = positions.filter(pos => pos.val > 0.5);
+
+        if (posChart) posChart.destroy();
+        posChart = new Chart(document.getElementById("posChart"), {
+          type: 'pie',
+          data: { labels: filteredPos.map(pos => pos.name),
+            datasets: [{ data: filteredPos.map(pos => pos.val), backgroundColor: ['#22c55e','#3b82f6','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'] }]
+          },
+          options: {
+            plugins: {
+              datalabels: {
+                formatter: (value) => totalPos > 0 ? Math.round((value / totalPos) * 100) + '%' : '',
+                color: '#fff', font: { weight: 'bold', size: 16 }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+
+        const singles = Math.max(0, p.hits - p.homeRuns);
+        const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
+        const totalHitting = (p.homeRuns||0) + singles + (p.walks||0) + (p.strikeouts||0) + otherOuts;
+
+        if (hittingChart) hittingChart.destroy();
+        hittingChart = new Chart(document.getElementById("hittingChart"), {
+          type: 'pie',
+          data: {
+            labels: ['HR', 'Singles', 'Walks', 'Strikeouts', 'Other Outs'],
+            datasets: [{ data: [p.homeRuns||0, singles, p.walks||0, p.strikeouts||0, otherOuts], backgroundColor: ['#ef4444', '#eab308', '#3b82f6', '#f97316', '#64748b'] }]
+          },
+          options: {
+            plugins: {
+              datalabels: {
+                formatter: (value) => totalHitting > 0 ? Math.round((value / totalHitting) * 100) + '%' : '',
+                color: '#fff', font: { weight: 'bold', size: 16 }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+      }, 300);
     }
 
     function closeModal() { document.getElementById("playerModal").style.display = "none"; }
@@ -384,7 +432,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== IMPROVED LINEUP TRACKER ====================
+    // ==================== LINEUP TRACKER WITH FULL STATS ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -437,12 +485,12 @@
         game.lineup.forEach((player, idx) => {
           const spot = idx + 1;
           if (!playerSpotStats[player]) playerSpotStats[player] = {};
-          if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0};
+          if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
           playerSpotStats[player][spot].games++;
         });
       });
 
-      const sortedPlayers = Object.keys(playerSpotStats).sort((a,b) => {
+      const sortedPlayers = Object.keys(playerSpotStats).sort((a, b) => {
         let totalA = 0, totalB = 0;
         Object.values(playerSpotStats[a]).forEach(s => totalA += s.games);
         Object.values(playerSpotStats[b]).forEach(s => totalB += s.games);
@@ -452,10 +500,14 @@
       sortedPlayers.forEach(player => {
         html += `<tr><td><strong>${player}</strong></td>`;
         for (let s = 1; s <= maxSpot; s++) {
-          const data = playerSpotStats[player][s] || {games: 0, ab: 0, h: 0};
+          const data = playerSpotStats[player][s] || {games: 0, ab: 0, h: 0, bb: 0, so: 0};
           const pct = lineupGames.length > 0 ? Math.round((data.games / lineupGames.length) * 100) : 0;
           const avg = data.ab > 0 ? (data.h / data.ab).toFixed(3) : "—";
-          html += `<td>${data.games} <small>(${pct}%)</small><br><small>AVG: ${avg}</small></td>`;
+          html += `<td>
+            ${data.games} <small>(${pct}%)</small><br>
+            AVG: ${avg}<br>
+            H: ${data.h} | BB: ${data.bb} | SO: ${data.so}
+          </td>`;
         }
         html += `</tr>`;
       });
@@ -478,17 +530,16 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with OCR - this may take a few seconds...");
+          alert("Processing with OCR...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
             await worker.terminate();
             const text = result.data.text.trim();
 
-            // Robust name extraction
             let lineup = [];
             const nameMatches = text.match(/([A-Z][a-z]+ [A-Z][a-z]+)/g) || [];
-            lineup = nameMatches.filter(n => n.length > 5 && !n.includes("TEAM") && !n.includes("LINEUP") && !n.includes("RA BLK"));
+            lineup = nameMatches.filter(n => n.length > 5 && !n.includes("TEAM") && !n.includes("LINEUP"));
 
             lineupGames.push({
               date: date,
@@ -500,7 +551,7 @@
 
             renderBoxScores();
             renderLineupTracker();
-            alert(`✅ Added game! Detected ${lineup.length} players.`);
+            alert(`✅ Added! Detected ${lineup.length} players.`);
           } catch(err) {
             lineupGames.push({date, opponent, photo: photoData, extractedText: "OCR failed", lineup: []});
             renderBoxScores();
