@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    // ALL PREVIOUS CODE UNCHANGED — ONLY Lineup Tracker parsing strengthened
+    // ALL CODE BEFORE THIS LINE IS EXACTLY THE SAME AS YOUR LAST WORKING VERSION
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -447,7 +447,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER — MAXIMUM STRENGTH PARSING ====================
+    // ==================== LINEUP TRACKER — MAXIMUM STRENGTH FOR YOUR FORMAT ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -549,7 +549,7 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with maximum-strength OCR...");
+          alert("Processing with strongest parsing for your format...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
@@ -561,23 +561,23 @@
             const stats = [];
 
             lines.forEach(line => {
-              // Strong name detection
+              // Match full name (with or without #number and position)
               const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)/);
               if (!nameMatch) return;
-              const name = nameMatch[1].trim();
+              let name = nameMatch[1].trim();
               if (name.length < 6 || name.includes("TEAM") || name.includes("LINEUP") || name.includes("RA BLK")) return;
 
               lineup.push(name);
 
-              // Extract numbers after the name
-              const numbers = line.match(/\b(\d+)\b/g);
-              if (numbers && numbers.length >= 5) {
-                const nums = numbers.map(n => parseInt(n));
+              // Extract all numbers in the line
+              const allNums = line.match(/\b(\d+)\b/g);
+              if (allNums && allNums.length >= 6) {
+                const nums = allNums.map(n => parseInt(n));
                 stats.push({
                   ab: nums[0] || 0,
-                  h: nums[2] || nums[1] || 0,   // flexible H position
-                  bb: nums[3] || 0,
-                  so: nums[4] || nums[5] || 0
+                  h: nums[2] || 0,     // Usually H is the 3rd number
+                  bb: nums[4] || 0,    // BB is often 5th
+                  so: nums[5] || 0     // SO is last
                 });
               } else {
                 stats.push({ab:0, h:0, bb:0, so:0});
