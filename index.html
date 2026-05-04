@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    // ALL PREVIOUS CODE UNCHANGED — ONLY Lineup Tracker parsing is stronger
+    // ALL CODE BEFORE THIS LINE IS EXACTLY THE SAME AS YOUR LAST WORKING VERSION
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -447,7 +447,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER — STRONGEST FOR YOUR OCR ====================
+    // ==================== LINEUP TRACKER — MAXIMUM STRENGTH FOR YOUR FORMAT ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -549,7 +549,7 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with strongest parsing...");
+          alert("Processing with strongest parsing for your format...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
@@ -568,16 +568,16 @@
 
               lineup.push(name);
 
-              // Extract ALL numbers in the line
+              // Extract ALL numbers in the line after the name
               let allNums = line.match(/\b(\d+)\b/g);
               if (allNums) {
                 let nums = allNums.map(n => parseInt(n));
 
-                // Handle concatenated numbers like "31" -> split into 3 and 1
+                // Split concatenated numbers like "31" into "3" and "1"
                 let expanded = [];
                 nums.forEach(n => {
-                  if (n > 9) {
-                    expanded.push(Math.floor(n/10));
+                  if (n > 9 && n < 100) {
+                    expanded.push(Math.floor(n / 10));
                     expanded.push(n % 10);
                   } else {
                     expanded.push(n);
@@ -611,7 +611,7 @@
 
             renderBoxScores();
             renderLineupTracker();
-            alert(`✅ Added! Detected ${lineup.length} players with stats.`);
+            alert(`✅ Added! Detected ${lineup.length} players.`);
           } catch(err) {
             lineupGames.push({date, opponent, photo: photoData, extractedText: "OCR failed", lineup: [], stats: []});
             renderBoxScores();
