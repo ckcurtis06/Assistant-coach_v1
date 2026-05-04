@@ -117,7 +117,7 @@
   </div>
 
   <script>
-    // EXACT PREVIOUS WORKING CODE - ONLY player number parsing strengthened
+    // EXACT PREVIOUS WORKING CODE - ONLY number parsing made ultra-robust
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -206,12 +206,24 @@
             const name = first && last ? `${first} ${last}` : first || last || "";
             if (name.length < 3) return null;
 
-            // Stronger number parsing
-            let num = row["#"] || row["Number"] || row["No"] || "";
-            if (!num || num === "") num = "?";
+            // ULTRA-ROBUST NUMBER PARSING
+            let num = "?";
+            const possibleCols = ["#", "Number", "No", "Jersey", "Player #", "ID"];
+            for (let col of possibleCols) {
+              if (row[col] && row[col].toString().trim() !== "") {
+                num = row[col].toString().trim();
+                break;
+              }
+            }
+            // Fallback: look for any number in the entire row
+            if (num === "?") {
+              const rowStr = JSON.stringify(row);
+              const found = rowStr.match(/\b\d{1,2}\b/);
+              if (found) num = found[0];
+            }
 
             return {
-              number: num.toString().trim(),
+              number: num,
               name: name,
               firstName: first.toLowerCase(),
               gp: parseInt(row["GP"]||0), atBats: parseInt(row["AB"]||0), hits: parseInt(row["H"]||0),
@@ -439,7 +451,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER ====================
+    // Lineup Tracker (unchanged from previous)
     let lineupGames = [];
 
     function renderBoxScores() {
