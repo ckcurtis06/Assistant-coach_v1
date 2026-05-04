@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,7 +116,7 @@
   </div>
 
   <script>
-    // ALL CODE BEFORE THIS LINE IS EXACTLY THE SAME AS YOUR LAST WORKING VERSION
+    // ALL PREVIOUS CODE IS EXACTLY THE SAME — ONLY Lineup Tracker parsing updated for your format
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -447,7 +448,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER — MAXIMUM STRENGTH FOR YOUR FORMAT ====================
+    // ==================== LINEUP TRACKER — STRONGEST FOR YOUR FORMAT ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -549,7 +550,7 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with strongest parsing for your format...");
+          alert("Processing with strongest parsing for your exact format...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
@@ -561,7 +562,6 @@
             const stats = [];
 
             lines.forEach(line => {
-              // Match full name (with or without #number and position)
               const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)/);
               if (!nameMatch) return;
               let name = nameMatch[1].trim();
@@ -569,15 +569,15 @@
 
               lineup.push(name);
 
-              // Extract all numbers in the line
+              // Extract numbers after the name for this exact format
               const allNums = line.match(/\b(\d+)\b/g);
               if (allNums && allNums.length >= 6) {
                 const nums = allNums.map(n => parseInt(n));
                 stats.push({
                   ab: nums[0] || 0,
-                  h: nums[2] || 0,     // Usually H is the 3rd number
-                  bb: nums[4] || 0,    // BB is often 5th
-                  so: nums[5] || 0     // SO is last
+                  h: nums[2] || 0,      // H is typically the 3rd number
+                  bb: nums[4] || 0,     // BB is 5th
+                  so: nums[5] || 0      // SO is 6th
                 });
               } else {
                 stats.push({ab:0, h:0, bb:0, so:0});
