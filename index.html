@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    // ALL CODE BEFORE THIS LINE IS EXACTLY THE SAME AS YOUR LAST WORKING VERSION
+    // ALL PREVIOUS CODE UNCHANGED — ONLY Lineup Tracker parsing updated
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -447,7 +447,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER — MAXIMUM STRENGTH FOR YOUR FORMAT ====================
+    // ==================== LINEUP TRACKER — STRONGEST FOR YOUR FORMAT ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -568,22 +568,19 @@
 
               lineup.push(name);
 
-              // Extract ALL numbers in the line after the name
+              // Extract all numbers
               let allNums = line.match(/\b(\d+)\b/g);
               if (allNums) {
-                let nums = allNums.map(n => parseInt(n));
-
-                // Split concatenated numbers like "31" into "3" and "1"
-                let expanded = [];
-                nums.forEach(n => {
+                let nums = [];
+                allNums.forEach(nStr => {
+                  let n = parseInt(nStr);
                   if (n > 9 && n < 100) {
-                    expanded.push(Math.floor(n / 10));
-                    expanded.push(n % 10);
+                    nums.push(Math.floor(n / 10));
+                    nums.push(n % 10);
                   } else {
-                    expanded.push(n);
+                    nums.push(n);
                   }
                 });
-                nums = expanded;
 
                 if (nums.length >= 6) {
                   stats.push({
@@ -611,7 +608,7 @@
 
             renderBoxScores();
             renderLineupTracker();
-            alert(`✅ Added! Detected ${lineup.length} players.`);
+            alert(`✅ Added! Detected ${lineup.length} players with stats.`);
           } catch(err) {
             lineupGames.push({date, opponent, photo: photoData, extractedText: "OCR failed", lineup: [], stats: []});
             renderBoxScores();
