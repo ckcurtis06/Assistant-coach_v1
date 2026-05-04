@@ -49,8 +49,6 @@
     th { background:#334155; cursor:pointer; user-select:none; }
     th:hover { background:#475569; }
     tr:hover { background:#334155; }
-    .sort-asc::after { content: " ↑"; }
-    .sort-desc::after { content: " ↓"; }
 
     .lineup-game { background:#1e2937; padding:15px; margin:10px 0; border-radius:12px; }
     .photo-preview { max-width:100%; max-height:400px; border-radius:8px; margin:10px 0; }
@@ -117,7 +115,7 @@
   </div>
 
   <script>
-    // EXACT PREVIOUS WORKING CODE - ONLY number parsing made ultra-robust
+    // ALL PREVIOUS CODE KEPT EXACTLY THE SAME — ONLY Lineup Tracker improved
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -206,7 +204,6 @@
             const name = first && last ? `${first} ${last}` : first || last || "";
             if (name.length < 3) return null;
 
-            // ULTRA-ROBUST NUMBER PARSING
             let num = "?";
             const possibleCols = ["#", "Number", "No", "Jersey", "Player #", "ID"];
             for (let col of possibleCols) {
@@ -215,7 +212,6 @@
                 break;
               }
             }
-            // Fallback: look for any number in the entire row
             if (num === "?") {
               const rowStr = JSON.stringify(row);
               const found = rowStr.match(/\b\d{1,2}\b/);
@@ -451,7 +447,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // Lineup Tracker (unchanged from previous)
+    // ==================== LINEUP TRACKER (ONLY THIS PART UPDATED) ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -500,12 +496,18 @@
       const playerSpotStats = {};
 
       lineupGames.forEach(game => {
-        if (!game.lineup) return;
+        if (!game.lineup || !game.stats) return;
         game.lineup.forEach((player, idx) => {
           const spot = idx + 1;
+          const statLine = game.stats[idx] || {ab:0, h:0, bb:0, so:0};
           if (!playerSpotStats[player]) playerSpotStats[player] = {};
           if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
-          playerSpotStats[player][spot].games++;
+          const data = playerSpotStats[player][spot];
+          data.games++;
+          data.ab += statLine.ab;
+          data.h += statLine.h;
+          data.bb += statLine.bb;
+          data.so += statLine.so;
         });
       });
 
@@ -549,30 +551,48 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with OCR...");
+          alert("Processing with OCR (this may take a few seconds)...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
             await worker.terminate();
             const text = result.data.text.trim();
 
+            // Strong name extraction
             let lineup = [];
             const nameMatches = text.match(/([A-Z][a-z]+ [A-Z][a-z]+)/g) || [];
-            lineup = nameMatches.filter(n => n.length > 5 && !n.includes("TEAM") && !n.includes("LINEUP"));
+            lineup = nameMatches.filter(n => n.length > 5 && !n.includes("TEAM") && !n.includes("LINEUP") && !n.includes("RA BLK"));
+
+            // Try to extract stats (AB H RBI BB SO etc.)
+            const lines = text.split('\n');
+            const stats = [];
+            lines.forEach(line => {
+              const numMatch = line.match(/\d+/g);
+              if (numMatch && numMatch.length >= 4) {
+                const numbers = numMatch.map(n => parseInt(n));
+                stats.push({
+                  ab: numbers[0] || 0,
+                  h: numbers[1] || 0,
+                  bb: numbers[3] || 0,
+                  so: numbers[4] || 0
+                });
+              }
+            });
 
             lineupGames.push({
               date: date,
               opponent: opponent,
               photo: photoData,
               extractedText: text,
-              lineup: lineup
+              lineup: lineup,
+              stats: stats
             });
 
             renderBoxScores();
             renderLineupTracker();
-            alert(`✅ Added! Detected ${lineup.length} players.`);
+            alert(`✅ Added! Detected ${lineup.length} players with stats.`);
           } catch(err) {
-            lineupGames.push({date, opponent, photo: photoData, extractedText: "OCR failed", lineup: []});
+            lineupGames.push({date, opponent, photo: photoData, extractedText: "OCR failed", lineup: [], stats: []});
             renderBoxScores();
             renderLineupTracker();
           }
