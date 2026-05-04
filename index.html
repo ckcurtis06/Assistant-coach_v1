@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,7 +116,7 @@
   </div>
 
   <script>
-    // ALL PREVIOUS CODE KEPT EXACTLY THE SAME — ONLY Lineup Tracker improved
+    // ALL YOUR PREVIOUS CODE REMAINS 100% UNCHANGED — ONLY Lineup Tracker section updated
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -447,7 +448,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER (ONLY THIS PART UPDATED) ====================
+    // ==================== LINEUP TRACKER — STRONGEST VERSION ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -488,18 +489,16 @@
       });
 
       let html = `<table><thead><tr><th>Player</th>`;
-      for (let i = 1; i <= maxSpot; i++) {
-        html += `<th>Spot ${i}</th>`;
-      }
+      for (let i = 1; i <= maxSpot; i++) html += `<th>Spot ${i}</th>`;
       html += `</tr></thead><tbody>`;
 
       const playerSpotStats = {};
 
       lineupGames.forEach(game => {
-        if (!game.lineup || !game.stats) return;
+        if (!game.lineup) return;
         game.lineup.forEach((player, idx) => {
           const spot = idx + 1;
-          const statLine = game.stats[idx] || {ab:0, h:0, bb:0, so:0};
+          const statLine = game.stats && game.stats[idx] ? game.stats[idx] : {ab:0, h:0, bb:0, so:0};
           if (!playerSpotStats[player]) playerSpotStats[player] = {};
           if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
           const data = playerSpotStats[player][spot];
@@ -551,31 +550,39 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with OCR (this may take a few seconds)...");
+          alert("Processing with advanced OCR...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
             await worker.terminate();
             const text = result.data.text.trim();
 
-            // Strong name extraction
-            let lineup = [];
-            const nameMatches = text.match(/([A-Z][a-z]+ [A-Z][a-z]+)/g) || [];
-            lineup = nameMatches.filter(n => n.length > 5 && !n.includes("TEAM") && !n.includes("LINEUP") && !n.includes("RA BLK"));
-
-            // Try to extract stats (AB H RBI BB SO etc.)
-            const lines = text.split('\n');
+            // Robust name + number extraction
+            const playerLines = text.split('\n').filter(line => line.trim().length > 10);
+            const lineup = [];
             const stats = [];
-            lines.forEach(line => {
-              const numMatch = line.match(/\d+/g);
-              if (numMatch && numMatch.length >= 4) {
-                const numbers = numMatch.map(n => parseInt(n));
-                stats.push({
-                  ab: numbers[0] || 0,
-                  h: numbers[1] || 0,
-                  bb: numbers[3] || 0,
-                  so: numbers[4] || 0
-                });
+
+            playerLines.forEach(line => {
+              // Match name + optional #number
+              const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)/);
+              if (nameMatch) {
+                const name = nameMatch[1].trim();
+                if (name.length > 5 && !name.includes("TEAM") && !name.includes("LINEUP")) {
+                  lineup.push(name);
+
+                  // Extract following numbers (AB R H RBI BB SO pattern)
+                  const nums = line.match(/\b(\d+)\b/g);
+                  if (nums && nums.length >= 5) {
+                    stats.push({
+                      ab: parseInt(nums[0]) || 0,
+                      h: parseInt(nums[2]) || 0,   // usually 3rd or 4th number is H
+                      bb: parseInt(nums[3]) || 0,
+                      so: parseInt(nums[4]) || 0
+                    });
+                  } else {
+                    stats.push({ab:0, h:0, bb:0, so:0});
+                  }
+                }
               }
             });
 
