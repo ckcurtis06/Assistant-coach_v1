@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -116,7 +115,7 @@
   </div>
 
   <script>
-    // ALL PREVIOUS CODE IS EXACTLY THE SAME — ONLY Lineup Tracker parsing updated for your format
+    // ALL PREVIOUS CODE UNCHANGED — ONLY Lineup Tracker parsing is stronger
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -448,7 +447,7 @@
       if (currentTeam) loadCurrentView();
     }
 
-    // ==================== LINEUP TRACKER — STRONGEST FOR YOUR FORMAT ====================
+    // ==================== LINEUP TRACKER — STRONGEST FOR YOUR OCR ====================
     let lineupGames = [];
 
     function renderBoxScores() {
@@ -550,7 +549,7 @@
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with strongest parsing for your exact format...");
+          alert("Processing with strongest parsing...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
@@ -569,16 +568,33 @@
 
               lineup.push(name);
 
-              // Extract numbers after the name for this exact format
-              const allNums = line.match(/\b(\d+)\b/g);
-              if (allNums && allNums.length >= 6) {
-                const nums = allNums.map(n => parseInt(n));
-                stats.push({
-                  ab: nums[0] || 0,
-                  h: nums[2] || 0,      // H is typically the 3rd number
-                  bb: nums[4] || 0,     // BB is 5th
-                  so: nums[5] || 0      // SO is 6th
+              // Extract ALL numbers in the line
+              let allNums = line.match(/\b(\d+)\b/g);
+              if (allNums) {
+                let nums = allNums.map(n => parseInt(n));
+
+                // Handle concatenated numbers like "31" -> split into 3 and 1
+                let expanded = [];
+                nums.forEach(n => {
+                  if (n > 9) {
+                    expanded.push(Math.floor(n/10));
+                    expanded.push(n % 10);
+                  } else {
+                    expanded.push(n);
+                  }
                 });
+                nums = expanded;
+
+                if (nums.length >= 6) {
+                  stats.push({
+                    ab: nums[0] || 0,
+                    h: nums[2] || 0,
+                    bb: nums[4] || 0,
+                    so: nums[5] || 0
+                  });
+                } else {
+                  stats.push({ab:0, h:0, bb:0, so:0});
+                }
               } else {
                 stats.push({ab:0, h:0, bb:0, so:0});
               }
