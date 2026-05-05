@@ -48,10 +48,11 @@
     th, td { padding:12px 8px; text-align:center; border-bottom:1px solid #334155; vertical-align:top; }
     th { background:#334155; cursor:pointer; user-select:none; }
     th:hover { background:#475569; }
+    th.sort-asc::after { content:" ▲"; font-size:0.75em; }
+    th.sort-desc::after { content:" ▼"; font-size:0.75em; }
     tr:hover { background:#334155; }
 
     .lineup-game { background:#1e2937; padding:15px; margin:10px 0; border-radius:12px; }
-    .photo-preview { max-width:100%; max-height:400px; border-radius:8px; margin:10px 0; }
     .ocr-result { background:#334155; padding:10px; border-radius:8px; white-space:pre-wrap; font-size:0.95em; margin:8px 0; }
   </style>
 </head>
@@ -82,7 +83,10 @@
     </div>
 
     <div id="seasonSelector" style="display:none;background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
-      <select id="seasonSelect" onchange="switchSeason()"></select>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <select id="seasonSelect" onchange="switchSeason()" style="flex:1;margin:0;"></select>
+        <button onclick="deleteCurrentSeason()" style="background:#ef4444;width:auto;min-width:120px;padding:18px;margin:0;white-space:nowrap;">🗑️ Delete CSV</button>
+      </div>
     </div>
 
     <div id="summarySection" style="background:#334155;padding:18px;border-radius:12px;text-align:center;font-size:1.4em;margin:15px 0;display:none;"></div>
@@ -115,7 +119,6 @@
   </div>
 
   <script>
-    // ALL PREVIOUS CODE UNCHANGED — ONLY Lineup Tracker parsing updated
     let allTeams = {};
     let currentTeam = "";
     let currentView = "Career";
@@ -125,22 +128,38 @@
     let currentSort = { col: -1, dir: 1 };
     const STORAGE_KEY = "AssistantCoach_Full_v2";
 
+    // BUG FIX #3: lineupGames is now keyed per team so games don't bleed across teams
+    let allLineupGames = {}; // { teamName: [...games] }
+
+    function getLineupGames() {
+      if (!currentTeam) return [];
+      if (!allLineupGames[currentTeam]) allLineupGames[currentTeam] = [];
+      return allLineupGames[currentTeam];
+    }
+
     window.onload = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) allTeams = JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        allTeams = parsed.teams || parsed; // backwards compat with old format
+        allLineupGames = parsed.lineupGames || {};
+      }
       updateTeamSelector();
     };
 
-    function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(allTeams)); }
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }));
+    }
 
     function copyBackupToClipboard() {
       if (Object.keys(allTeams).length === 0) return alert("No data yet");
-      navigator.clipboard.writeText(JSON.stringify(allTeams, null, 2)).then(() => alert("✅ Backup copied!"));
+      navigator.clipboard.writeText(JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }, null, 2))
+        .then(() => alert("✅ Backup copied!"));
     }
 
     function downloadBackup() {
       if (Object.keys(allTeams).length === 0) return alert("No data");
-      const dataStr = JSON.stringify(allTeams, null, 2);
+      const dataStr = JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }, null, 2);
       const blob = new Blob([dataStr], {type: "application/json"});
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -154,7 +173,9 @@
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
-          allTeams = JSON.parse(e.target.result);
+          const parsed = JSON.parse(e.target.result);
+          allTeams = parsed.teams || parsed;
+          allLineupGames = parsed.lineupGames || {};
           updateTeamSelector();
           if (Object.keys(allTeams).length > 0) {
             currentTeam = Object.keys(allTeams)[0];
@@ -185,7 +206,15 @@
       });
     }
 
-    function switchTeam() { currentTeam = document.getElementById("teamSelect").value; if (currentTeam) loadCurrentView(); }
+    function switchTeam() {
+      currentTeam = document.getElementById("teamSelect").value;
+      currentView = "Career";
+      // BUG FIX #5: update season selector when switching teams
+      if (currentTeam) {
+        updateSeasonSelector();
+        loadCurrentView();
+      }
+    }
 
     function importNewSeason() {
       if (!currentTeam) return alert("Create/select a team first");
@@ -221,6 +250,8 @@
             return {
               number: num,
               name: name,
+              // BUG FIX #6: use full name as merge key instead of just firstName
+              mergeKey: name.toLowerCase(),
               firstName: first.toLowerCase(),
               gp: parseInt(row["GP"]||0), atBats: parseInt(row["AB"]||0), hits: parseInt(row["H"]||0),
               walks: parseInt(row["BB"]||0), homeRuns: parseInt(row["HR"]||0), rbis: parseInt(row["RBI"]||0),
@@ -261,22 +292,41 @@
 
     function switchSeason() { currentView = document.getElementById("seasonSelect").value; loadCurrentView(); }
 
+    function deleteCurrentSeason() {
+      if (!currentTeam || !currentView || currentView === "Career") {
+        return alert("Select a specific season to delete — Career view cannot be deleted.");
+      }
+      if (!confirm(`Delete season "${currentView}" from ${currentTeam}? This cannot be undone.`)) return;
+      delete allTeams[currentTeam][currentView];
+      saveData();
+      // Reset to Career or first remaining season
+      const remaining = Object.keys(allTeams[currentTeam]);
+      currentView = remaining.length > 0 ? remaining[0] : "Career";
+      updateSeasonSelector();
+      loadCurrentView();
+    }
+
     function loadCurrentView() {
       if (!currentTeam) return;
       const teamSeasons = allTeams[currentTeam] || {};
       if (currentView === "Career") {
         const map = {};
         Object.values(teamSeasons).flat().forEach(p => {
-          const key = p.firstName || p.name.toLowerCase();
+          // BUG FIX #6: use full name (mergeKey) instead of firstName to avoid collisions
+          const key = p.mergeKey || p.name.toLowerCase();
           if (!map[key]) map[key] = {...p, gp:0,atBats:0,hits:0,walks:0,homeRuns:0,rbis:0,strikeouts:0,inningsPitched:0,earnedRuns:0};
           const t = map[key];
-          Object.keys(p).forEach(k => { if (typeof p[k]==="number") t[k] = (t[k]||0) + p[k]; });
+          ["gp","atBats","hits","walks","homeRuns","rbis","strikeouts","inningsPitched","earnedRuns",
+           "posP","posC","pos1B","pos2B","pos3B","posSS","posLF","posCF","posRF"].forEach(k => {
+            t[k] = (t[k] || 0) + (p[k] || 0);
+          });
         });
         players = Object.values(map);
       } else {
         players = teamSeasons[currentView] || [];
       }
       players.sort((a,b) => (b.atBats ? b.hits/b.atBats : 0) - (a.atBats ? a.hits/a.atBats : 0));
+      currentSort = { col: -1, dir: 1 }; // reset sort state on view change
       renderSummary();
       renderRoster();
       renderTeamTable();
@@ -296,7 +346,9 @@
       players.forEach((p, i) => {
         const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
         const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
-        const slg = p.atBats ? ((p.hits + p.homeRuns) / p.atBats).toFixed(3) : ".000";
+        // BUG FIX #4: correct SLG formula — singles + 4×HR (HR already counted in hits, so +3 extra per HR)
+        const singles = Math.max(0, p.hits - p.homeRuns);
+        const slg = p.atBats ? ((singles + 4 * (p.homeRuns||0)) / p.atBats).toFixed(3) : ".000";
         const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
         const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
         const bo = p.battingOrder ? `#${p.battingOrder}` : "—";
@@ -312,7 +364,9 @@
       const p = players[i];
       const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
       const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
-      const slg = p.atBats ? ((p.hits + p.homeRuns) / p.atBats).toFixed(3) : ".000";
+      // BUG FIX #4: correct SLG in profile modal too
+      const singles = Math.max(0, p.hits - p.homeRuns);
+      const slg = p.atBats ? ((singles + 4 * (p.homeRuns||0)) / p.atBats).toFixed(3) : ".000";
       const ops = (parseFloat(obp) + parseFloat(slg)).toFixed(2);
       const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
       const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
@@ -352,7 +406,6 @@
           plugins: [ChartDataLabels]
         });
 
-        const singles = Math.max(0, p.hits - p.homeRuns);
         const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
         const totalHitting = (p.homeRuns||0) + singles + (p.walks||0) + (p.strikeouts||0) + otherOuts;
 
@@ -390,24 +443,83 @@
       if (n === 3) renderLineupTracker();
     }
 
+    // BUG FIX #2: sortTable now actually re-renders the table with sorted data
+    function sortTable(colIndex) {
+      if (currentSort.col === colIndex) {
+        currentSort.dir *= -1;
+      } else {
+        currentSort.col = colIndex;
+        currentSort.dir = 1;
+      }
+
+      // Define how to extract a sortable value from each player row by column index
+      const getValue = (p, col) => {
+        const singles = Math.max(0, p.hits - p.homeRuns);
+        const ab = p.atBats || 0;
+        const avg = ab ? p.hits / ab : 0;
+        const slg = ab ? (singles + 4 * (p.homeRuns||0)) / ab : 0;
+        const obp = (ab + p.walks) ? (p.hits + p.walks) / (ab + p.walks) : 0;
+        const totalPos = (p.posP + p.posC + p.pos1B + p.pos2B + p.pos3B + p.posSS + p.posLF + p.posCF + p.posRF) || 1;
+        switch(col) {
+          case 0: return parseInt(p.number) || 0;
+          case 1: return p.name;
+          case 2: return p.gp || 0;
+          case 3: return avg;
+          case 4: return p.hits || 0;
+          case 5: return slg;
+          case 6: return obp;
+          case 7: return obp + slg;
+          case 8: return p.battingOrder || 0;
+          case 9: return p.homeRuns || 0;
+          case 10: return p.rbis || 0;
+          case 11: return p.walks || 0;
+          case 12: return ab ? p.walks / ab : 0;
+          case 13: return p.strikeouts || 0;
+          case 14: return ab ? p.strikeouts / ab : 0;
+          case 15: return p.inningsPitched || 0;
+          case 16: return p.inningsPitched > 0 ? p.earnedRuns * 7 / p.inningsPitched : 999;
+          case 17: return p.inningsPitched > 0 ? (p.hits + p.walks) / p.inningsPitched : 999;
+          case 18: return p.posP / totalPos;
+          case 19: return p.posC / totalPos;
+          case 20: return p.pos1B / totalPos;
+          case 21: return p.pos2B / totalPos;
+          case 22: return p.pos3B / totalPos;
+          case 23: return p.posSS / totalPos;
+          case 24: return p.posLF / totalPos;
+          case 25: return p.posCF / totalPos;
+          case 26: return p.posRF / totalPos;
+          default: return 0;
+        }
+      };
+
+      players.sort((a, b) => {
+        const va = getValue(a, colIndex);
+        const vb = getValue(b, colIndex);
+        if (typeof va === 'string') return currentSort.dir * va.localeCompare(vb);
+        return currentSort.dir * (va - vb);
+      });
+
+      renderTeamTable();
+    }
+
     function renderTeamTable() {
       const container = document.getElementById("teamTableContainer");
+      const cols = ['#','Player','GP','AVG','H','SLG','OBP','OPS','BO','HR','RBI','BB','BB%','SO','K%','IP','ERA','WHIP','P%','C%','1B%','2B%','3B%','SS%','LF%','CF%','RF%'];
+
       let html = `<h2>${currentTeam} — ${currentView} Team Stats Table</h2>`;
-      html += `<table id="statsTable"><thead><tr>
-        <th onclick="sortTable(0)">#</th><th onclick="sortTable(1)">Player</th><th onclick="sortTable(2)">GP</th>
-        <th onclick="sortTable(3)">AVG</th><th onclick="sortTable(4)">H</th><th onclick="sortTable(5)">SLG</th>
-        <th onclick="sortTable(6)">OBP</th><th onclick="sortTable(7)">OPS</th><th onclick="sortTable(8)">BO</th>
-        <th onclick="sortTable(9)">HR</th><th onclick="sortTable(10)">RBI</th><th onclick="sortTable(11)">BB</th>
-        <th onclick="sortTable(12)">BB%</th><th onclick="sortTable(13)">SO</th><th onclick="sortTable(14)">K%</th>
-        <th onclick="sortTable(15)">IP</th><th onclick="sortTable(16)">ERA</th><th onclick="sortTable(17)">WHIP</th>
-        <th onclick="sortTable(18)">P%</th><th onclick="sortTable(19)">C%</th><th onclick="sortTable(20)">1B%</th>
-        <th onclick="sortTable(21)">2B%</th><th onclick="sortTable(22)">3B%</th><th onclick="sortTable(23)">SS%</th>
-        <th onclick="sortTable(24)">LF%</th><th onclick="sortTable(25)">CF%</th><th onclick="sortTable(26)">RF%</th>
-      </tr></thead><tbody>`;
+      html += `<table id="statsTable"><thead><tr>`;
+      cols.forEach((col, i) => {
+        let cls = '';
+        if (currentSort.col === i) cls = currentSort.dir === 1 ? 'sort-asc' : 'sort-desc';
+        html += `<th class="${cls}" onclick="sortTable(${i})">${col}</th>`;
+      });
+      html += `</tr></thead><tbody>`;
 
       players.forEach(p => {
+        const singles = Math.max(0, p.hits - p.homeRuns);
         const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
-        const slg = p.atBats ? ((p.hits + p.homeRuns) / p.atBats).toFixed(3) : ".000";
+        // BUG FIX #4: correct SLG in table too
+        const slg = p.atBats ? ((singles + 4 * (p.homeRuns||0)) / p.atBats).toFixed(3) : ".000";
         const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
         const ops = (parseFloat(obp) + parseFloat(slg)).toFixed(2);
         const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
@@ -433,39 +545,54 @@
       container.innerHTML = html;
     }
 
-    function sortTable(colIndex) {
-      if (currentSort.col === colIndex) currentSort.dir *= -1;
-      else { currentSort.col = colIndex; currentSort.dir = 1; }
-    }
-
+    // BUG FIX #1: removeCurrentTeam now clears the UI when no teams remain
     function removeCurrentTeam() {
       if (!currentTeam || !confirm(`Delete team ${currentTeam}?`)) return;
       delete allTeams[currentTeam];
+      delete allLineupGames[currentTeam];
       currentTeam = Object.keys(allTeams)[0] || "";
+      players = [];
       updateTeamSelector();
       saveData();
-      if (currentTeam) loadCurrentView();
+
+      if (currentTeam) {
+        currentView = "Career";
+        updateSeasonSelector();
+        loadCurrentView();
+      } else {
+        // No teams left — clear everything
+        currentView = "Career";
+        document.getElementById("playerList").innerHTML = "";
+        document.getElementById("teamTableContainer").innerHTML = "";
+        document.getElementById("boxScoresContainer").innerHTML = "";
+        document.getElementById("lineupTrackerContainer").innerHTML = "";
+        document.getElementById("summarySection").style.display = "none";
+        document.getElementById("seasonSelector").style.display = "none";
+      }
     }
 
-    // ==================== LINEUP TRACKER — STRONGEST FOR YOUR FORMAT ====================
-    let lineupGames = [];
+    // ==================== LINEUP TRACKER ====================
 
     function renderBoxScores() {
+      const lineupGames = getLineupGames();
       const container = document.getElementById("boxScoresContainer");
       let html = `<h2>Box Scores - ${currentTeam}</h2>
-        <button onclick="addNewLineupGame()" style="background:#22c55e;margin-bottom:15px;">+ Add Game Box Score Photo</button>`;
+        <label style="display:block;background:#22c55e;color:black;text-align:center;padding:18px;border-radius:16px;font-size:1.2em;font-weight:bold;cursor:pointer;margin-bottom:15px;">
+          📸 Upload Box Score Photos
+          <input type="file" accept="image/*" multiple style="display:none" onchange="addNewLineupGame(event)">
+        </label>
+        <div id="ocrProgress" style="display:none;background:#334155;padding:12px;border-radius:10px;margin-bottom:12px;text-align:center;"></div>`;
 
       if (lineupGames.length === 0) {
-        html += `<p style="color:#94a3b8;">No photos yet. Upload box scores here.</p>`;
+        html += `<p style="color:#94a3b8;">No photos yet. You can select multiple photos at once.</p>`;
       } else {
+        html += `<p style="color:#94a3b8;">${lineupGames.length} box score(s) uploaded. <button onclick="clearAllGames()" style="background:#ef4444;width:auto;padding:8px 16px;min-height:unset;font-size:1em;">🗑️ Clear All</button></p>`;
         lineupGames.forEach((game, i) => {
           html += `
             <div class="lineup-game">
-              <strong>${game.date} vs ${game.opponent}</strong><br>
-              ${game.photo ? `<img src="${game.photo}" class="photo-preview">` : ''}
-              <div class="ocr-result">${game.extractedText || 'No text'}</div>
-              <p><strong>Parsed Lineup:</strong> ${game.lineup && game.lineup.length ? game.lineup.join(" → ") : 'Not parsed yet'}</p>
-              <button onclick="deleteLineupGame(${i})" style="background:#ef4444;">Delete Game</button>
+              <strong>Box Score ${i + 1}</strong> — ${game.lineup ? game.lineup.length : 0} players parsed
+              <button onclick="deleteLineupGame(${i})" style="background:#ef4444;width:auto;padding:6px 14px;min-height:unset;font-size:0.95em;margin-left:10px;">Delete</button><br>
+              <p style="color:#94a3b8;font-size:0.9em;">${game.lineup && game.lineup.length ? game.lineup.join(", ") : 'No players detected'}</p>
             </div>`;
         });
       }
@@ -480,6 +607,7 @@
     }
 
     function generateLineupSummaryTable() {
+      const lineupGames = getLineupGames();
       if (lineupGames.length === 0) return "<p>No lineup data yet. Upload some box scores first.</p>";
 
       let maxSpot = 0;
@@ -497,15 +625,17 @@
         if (!game.lineup) return;
         game.lineup.forEach((player, idx) => {
           const spot = idx + 1;
-          const statLine = game.stats && game.stats[idx] ? game.stats[idx] : {ab:0, h:0, bb:0, so:0};
+          const statLine = game.stats && game.stats[idx] ? game.stats[idx] : {ab:0, r:0, h:0, rbi:0, bb:0, so:0};
           if (!playerSpotStats[player]) playerSpotStats[player] = {};
-          if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, h: 0, bb: 0, so: 0};
+          if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0};
           const data = playerSpotStats[player][spot];
           data.games++;
-          data.ab += statLine.ab;
-          data.h += statLine.h;
-          data.bb += statLine.bb;
-          data.so += statLine.so;
+          data.ab  += statLine.ab  || 0;
+          data.r   += statLine.r   || 0;
+          data.h   += statLine.h   || 0;
+          data.rbi += statLine.rbi || 0;
+          data.bb  += statLine.bb  || 0;
+          data.so  += statLine.so  || 0;
         });
       });
 
@@ -519,13 +649,14 @@
       sortedPlayers.forEach(player => {
         html += `<tr><td><strong>${player}</strong></td>`;
         for (let s = 1; s <= maxSpot; s++) {
-          const data = playerSpotStats[player][s] || {games: 0, ab: 0, h: 0, bb: 0, so: 0};
+          const data = playerSpotStats[player][s] || {games: 0, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0};
           const pct = lineupGames.length > 0 ? Math.round((data.games / lineupGames.length) * 100) : 0;
           const avg = data.ab > 0 ? (data.h / data.ab).toFixed(3) : "—";
           html += `<td>
             ${data.games} <small>(${pct}%)</small><br>
             AVG: ${avg}<br>
-            H: ${data.h} | BB: ${data.bb} | SO: ${data.so}
+            H: ${Number(data.h)} | R: ${Number(data.r)} | RBI: ${Number(data.rbi)}<br>
+            BB: ${Number(data.bb)} | SO: ${Number(data.so)}
           </td>`;
         }
         html += `</tr>`;
@@ -535,94 +666,91 @@
       return html;
     }
 
-    async function addNewLineupGame() {
-      const date = prompt("Game Date (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
-      const opponent = prompt("Opponent Name:", "");
-      if (!date || !opponent) return;
+    function parseLineFromOCR(line) {
+      const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)/);
+      if (!nameMatch) return null;
+      const name = nameMatch[1].trim();
+      if (name.length < 6 || name.includes("TEAM") || name.includes("LINEUP") || name.includes("RA BLK")) return null;
 
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+      let statsPart = line.slice(line.indexOf(nameMatch[0]) + nameMatch[0].length);
+      statsPart = statsPart.replace(/#\d+/g, '');
+      statsPart = statsPart.replace(/\([^)]*\)/g, '');
+      statsPart = statsPart.replace(/\b(1B|2B|3B|SS|CF|LF|RF|DH|[PC])\b/gi, '');
+      let statNums = statsPart.match(/\b\d+\b/g) || [];
+      if (statNums.length > 0 && /^\d{2}$/.test(statNums[0])) {
+        statNums = [statNums[0][0], statNums[0][1], ...statNums.slice(1)];
+      }
+      const s = statNums;
+      const stat = (s.length >= 3)
+        ? { ab: +s[0]||0, r: +s[1]||0, h: +s[2]||0, rbi: +s[3]||0, bb: +s[4]||0, so: +s[5]||0 }
+        : { ab:0, r:0, h:0, rbi:0, bb:0, so:0 };
+      return { name, stat };
+    }
+
+    async function processPhotoFile(file) {
+      return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = async (ev) => {
           const photoData = ev.target.result;
-          alert("Processing with strongest parsing for your format...");
           try {
             const worker = await Tesseract.createWorker('eng');
             const result = await worker.recognize(photoData);
             await worker.terminate();
             const text = result.data.text.trim();
-
-            const lines = text.split('\n');
-            const lineup = [];
-            const stats = [];
-
-            lines.forEach(line => {
-              const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)/);
-              if (!nameMatch) return;
-              let name = nameMatch[1].trim();
-              if (name.length < 6 || name.includes("TEAM") || name.includes("LINEUP") || name.includes("RA BLK")) return;
-
-              lineup.push(name);
-
-              // Extract all numbers
-              let allNums = line.match(/\b(\d+)\b/g);
-              if (allNums) {
-                let nums = [];
-                allNums.forEach(nStr => {
-                  let n = parseInt(nStr);
-                  if (n > 9 && n < 100) {
-                    nums.push(Math.floor(n / 10));
-                    nums.push(n % 10);
-                  } else {
-                    nums.push(n);
-                  }
-                });
-
-                if (nums.length >= 6) {
-                  stats.push({
-                    ab: nums[0] || 0,
-                    h: nums[2] || 0,
-                    bb: nums[4] || 0,
-                    so: nums[5] || 0
-                  });
-                } else {
-                  stats.push({ab:0, h:0, bb:0, so:0});
-                }
-              } else {
-                stats.push({ab:0, h:0, bb:0, so:0});
-              }
+            const lineup = [], stats = [];
+            text.split('\n').forEach(line => {
+              const parsed = parseLineFromOCR(line);
+              if (parsed) { lineup.push(parsed.name); stats.push(parsed.stat); }
             });
-
-            lineupGames.push({
-              date: date,
-              opponent: opponent,
-              photo: photoData,
-              extractedText: text,
-              lineup: lineup,
-              stats: stats
-            });
-
-            renderBoxScores();
-            renderLineupTracker();
-            alert(`✅ Added! Detected ${lineup.length} players with stats.`);
+            resolve({ lineup, stats });
           } catch(err) {
-            lineupGames.push({date, opponent, photo: photoData, extractedText: "OCR failed", lineup: [], stats: []});
-            renderBoxScores();
-            renderLineupTracker();
+            resolve({ lineup: [], stats: [] });
           }
         };
         reader.readAsDataURL(file);
-      };
-      input.click();
+      });
+    }
+
+    async function addNewLineupGame(event) {
+      if (!currentTeam) return alert("Select a team first");
+      const files = Array.from(event.target.files);
+      if (!files.length) return;
+
+      if (!allLineupGames[currentTeam]) allLineupGames[currentTeam] = [];
+
+      const progress = document.getElementById("ocrProgress");
+      progress.style.display = "block";
+
+      for (let i = 0; i < files.length; i++) {
+        progress.textContent = `Processing photo ${i + 1} of ${files.length}...`;
+        const gameData = await processPhotoFile(files[i]);
+        allLineupGames[currentTeam].push(gameData);
+        saveData();
+        renderBoxScores();      // re-render after each so progress div stays visible
+        renderLineupTracker();
+        // Re-grab progress element since renderBoxScores rebuilds the DOM
+        const prog = document.getElementById("ocrProgress");
+        if (prog) { prog.style.display = "block"; prog.textContent = `Processing photo ${i + 1} of ${files.length}...`; }
+      }
+
+      const prog = document.getElementById("ocrProgress");
+      if (prog) { prog.textContent = `✅ Done! ${files.length} photo(s) processed.`; setTimeout(() => { if (prog) prog.style.display = "none"; }, 3000); }
+      renderBoxScores();
+      renderLineupTracker();
+    }
+
+    function clearAllGames() {
+      if (!currentTeam || !confirm("Clear all box scores for this team?")) return;
+      allLineupGames[currentTeam] = [];
+      saveData();
+      renderBoxScores();
+      renderLineupTracker();
     }
 
     function deleteLineupGame(i) {
       if (confirm("Delete this game?")) {
-        lineupGames.splice(i, 1);
+        getLineupGames().splice(i, 1);
+        saveData();
         renderBoxScores();
         renderLineupTracker();
       }
