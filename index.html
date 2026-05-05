@@ -28,6 +28,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v5/dist/tesseract.min.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; margin:0; background:#0f172a; color:white; }
     .container { padding:20px; max-width:1400px; margin:auto; }
@@ -60,6 +64,18 @@
   <div class="container">
     <h1>Assistant Coach ⚾</h1>
 
+    <!-- Auth Bar -->
+    <div id="authBar" style="background:#1e2937;padding:16px 20px;border-radius:16px;margin:15px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span id="authStatus" style="font-size:1.1em;color:#94a3b8;">Not signed in — viewing read-only</span>
+      <div style="display:flex;gap:10px;">
+        <button id="signInBtn" onclick="signIn()" style="background:#4285f4;width:auto;padding:12px 20px;min-height:unset;font-size:1em;">🔐 Sign in with Google</button>
+        <button id="signOutBtn" onclick="signOut()" style="background:#475569;width:auto;padding:12px 20px;min-height:unset;font-size:1em;display:none;">Sign Out</button>
+      </div>
+    </div>
+
+    <!-- Edit-only sections (hidden for viewers) -->
+    <div id="editControls" style="display:none;">
+
     <!-- Backup & Restore -->
     <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <h2>Backup & Restore</h2>
@@ -81,6 +97,8 @@
       <input type="file" id="csvFile" accept=".csv" style="width:100%;margin-bottom:10px;">
       <button onclick="importNewSeason()" style="background:#3b82f6;">📤 Import GameChanger CSV</button>
     </div>
+
+    </div><!-- end editControls -->
 
     <div id="seasonSelector" style="display:none;background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
       <div style="display:flex;gap:10px;align-items:center;">
@@ -137,17 +155,114 @@
       return allLineupGames[currentTeam];
     }
 
-    window.onload = () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        allTeams = parsed.teams || parsed; // backwards compat with old format
-        allLineupGames = parsed.lineupGames || {};
+    // ==================== FIREBASE ====================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBkXyrFwEVtfNk7tAbBOaAAxQQcOENp0Hs",
+      authDomain: "assistant-coach-ecfd7.firebaseapp.com",
+      projectId: "assistant-coach-ecfd7",
+      storageBucket: "assistant-coach-ecfd7.firebasestorage.app",
+      messagingSenderId: "144611291022",
+      appId: "1:144611291022:web:792aefe5f0c17787d0fedf"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const OWNER_EMAIL = ""; // will be set automatically on first sign-in
+
+    let currentUser = null;
+    let isOwner = false;
+    let ownerEmail = localStorage.getItem("ACOwnerEmail") || "";
+
+    auth.onAuthStateChanged(async (user) => {
+      currentUser = user;
+      if (user) {
+        // First person to sign in becomes the owner
+        if (!ownerEmail) {
+          ownerEmail = user.email;
+          localStorage.setItem("ACOwnerEmail", ownerEmail);
+          // Save owner email to Firestore so other devices know
+          await db.collection("config").doc("owner").set({ email: ownerEmail });
+        }
+        // Check if owner email is in Firestore (for new devices)
+        const ownerDoc = await db.collection("config").doc("owner").get();
+        if (ownerDoc.exists) ownerEmail = ownerDoc.data().email;
+
+        isOwner = (user.email === ownerEmail);
+        document.getElementById("authStatus").textContent = isOwner
+          ? `✅ Signed in as ${user.email} (Coach)`
+          : `👁️ Signed in as ${user.email} (View only)`;
+        document.getElementById("signInBtn").style.display = "none";
+        document.getElementById("signOutBtn").style.display = "inline-block";
+        document.getElementById("editControls").style.display = isOwner ? "block" : "none";
+      } else {
+        isOwner = false;
+        document.getElementById("authStatus").textContent = "Not signed in — viewing read-only";
+        document.getElementById("signInBtn").style.display = "inline-block";
+        document.getElementById("signOutBtn").style.display = "none";
+        document.getElementById("editControls").style.display = "none";
+      }
+      // Load data from Firebase (works for both owner and viewers)
+      await loadFromFirebase();
+    });
+
+    function signIn() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider);
+    }
+
+    function signOut() {
+      auth.signOut();
+    }
+
+    async function loadFromFirebase() {
+      try {
+        const doc = await db.collection("coachData").doc("main").get();
+        if (doc.exists) {
+          const data = doc.data();
+          allTeams = data.teams || {};
+          allLineupGames = data.lineupGames || {};
+        } else {
+          // No Firebase data yet — try migrating from localStorage
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved && isOwner) {
+            const parsed = JSON.parse(saved);
+            allTeams = parsed.teams || parsed;
+            allLineupGames = parsed.lineupGames || {};
+            await saveData(); // push localStorage data up to Firebase
+          }
+        }
+      } catch(err) {
+        // Firebase unavailable — fall back to localStorage
+        console.warn("Firebase unavailable, using localStorage:", err);
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          allTeams = parsed.teams || parsed;
+          allLineupGames = parsed.lineupGames || {};
+        }
+      }
+      if (Object.keys(allTeams).length > 0 && !currentTeam) {
+        currentTeam = Object.keys(allTeams)[0];
+        updateSeasonSelector();
+        currentView = "Career";
       }
       updateTeamSelector();
-    };
+      if (currentTeam) loadCurrentView();
+    }
 
-    function saveData() {
+    async function saveData() {
+      if (!isOwner) return; // viewers cannot save
+      // Save to Firebase
+      try {
+        await db.collection("coachData").doc("main").set({
+          teams: allTeams,
+          lineupGames: allLineupGames,
+          updatedAt: new Date().toISOString()
+        });
+      } catch(err) {
+        console.warn("Firebase save failed, saving to localStorage:", err);
+      }
+      // Always keep localStorage in sync as backup
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }));
     }
 
