@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Assistant Coach">
-  <meta name="theme-color" content="#22c55e">
- 
+  <meta name="theme-color" content="#0a0a0f">
+
   <link rel="manifest" href="data:application/manifest+json,{
     &quot;name&quot;:&quot;Assistant Coach ⚾&quot;,
     &quot;short_name&quot;:&quot;Asst Coach&quot;,
     &quot;start_url&quot;:&quot;.&quot;,
     &quot;display&quot;:&quot;standalone&quot;,
-    &quot;background_color&quot;:&quot;#0f172a&quot;,
-    &quot;theme_color&quot;:&quot;#22c55e&quot;,
+    &quot;background_color&quot;:&quot;#0a0a0f&quot;,
+    &quot;theme_color&quot;:&quot;#00ff87&quot;,
     &quot;icons&quot;:[{
       &quot;src&quot;:&quot;https://raw.githubusercontent.com/ckcurtis06/Assistant-coach_v1/main/icon-512.png&quot;,
       &quot;sizes&quot;:&quot;512x512&quot;,
@@ -23,115 +23,1088 @@
     }]
   }">
 
-  <title>Assistant Coach ⚾  </title>
+  <title>Assistant Coach ⚾</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v5/dist/tesseract.min.js"></script>
-  <!-- Firebase -->
+  <!-- PDF.js for in-browser PDF parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';</script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <style>
-    body { font-family: system-ui, sans-serif; margin:0; background:#0f172a; color:white; }
-    .container { padding:20px; max-width:1400px; margin:auto; }
-    button, select { padding:18px 24px; margin:8px 0; font-size:1.2em; min-height:65px; border-radius:16px; width:100%; }
-    .player-card { background:#334155; border-radius:16px; padding:20px; margin:12px 0; cursor:pointer; display:flex; align-items:center; gap:20px; }
-    .number { font-size:3em; font-weight:bold; color:#22c55e; min-width:90px; text-align:center; }
-    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:1000; overflow:auto; }
-    .modal-content { background:#1e2937; margin:20px auto; padding:25px; max-width:1100px; border-radius:16px; }
-    .close { float:right; font-size:3em; cursor:pointer; color:#ef4444; }
-    .charts { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; }
-    .chart-container { width:100%; max-width:460px; text-align:center; }
-    
-    .tabs { display:flex; gap:10px; margin:15px 0; flex-wrap:wrap; }
-    .tab { flex:1; min-width:140px; padding:18px; text-align:center; font-size:1.2em; background:#334155; border-radius:12px; cursor:pointer; }
-    .tab.active { background:#22c55e; color:black; font-weight:bold; }
+    :root {
+      --bg:       #0a0a0f;
+      --surface:  #13131a;
+      --card:     #1a1a24;
+      --border:   #2a2a3a;
+      --accent:   #00ff87;
+      --accent2:  #00c9ff;
+      --danger:   #ff3b5c;
+      --warn:     #ffb347;
+      --text:     #f0f0f8;
+      --muted:    #6b6b85;
+      --font-display: 'Bebas Neue', sans-serif;
+      --font-body:    'DM Sans', sans-serif;
+      --nav-h: 72px;
+    }
 
-    table { width:100%; border-collapse:collapse; background:#1e2937; border-radius:12px; overflow:hidden; margin-top:10px; }
-    th, td { padding:12px 8px; text-align:center; border-bottom:1px solid #334155; vertical-align:top; }
-    th { background:#334155; cursor:pointer; user-select:none; }
-    th:hover { background:#475569; }
-    th.sort-asc::after { content:" ▲"; font-size:0.75em; }
-    th.sort-desc::after { content:" ▼"; font-size:0.75em; }
-    tr:hover { background:#334155; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .lineup-game { background:#1e2937; padding:15px; margin:10px 0; border-radius:12px; }
-    .ocr-result { background:#334155; padding:10px; border-radius:8px; white-space:pre-wrap; font-size:0.95em; margin:8px 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: var(--nav-h);
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+      background: linear-gradient(135deg, #0d0d18 0%, #111122 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .app-logo {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-auth {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #authStatus {
+      font-size: 0.78rem;
+      color: var(--muted);
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #authStatus.signed-in { color: var(--accent); }
+    .btn-sm {
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    #signInBtn  { background: linear-gradient(135deg, #4285f4, #34a0a4); color: #fff; }
+    #signOutBtn { background: var(--border); color: var(--muted); display: none; }
+    .btn-sm:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    /* ── HERO BANNER ── */
+    .hero {
+      background: linear-gradient(135deg, #0d1117 0%, #0d1f12 50%, #0a1520 100%);
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(0,255,135,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .hero-team {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .team-badge {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+    .team-info h2 {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+    .team-info .season-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .hero-stats {
+      display: flex;
+      gap: 20px;
+    }
+    .hero-stat {
+      text-align: center;
+    }
+    .hero-stat .val {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      letter-spacing: 1px;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .hero-stat .lbl {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* ── SELECTORS ROW ── */
+    .selectors-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .selectors-row select {
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      flex: 1;
+      min-width: 120px;
+      appearance: none;
+      cursor: pointer;
+    }
+    .selectors-row select:focus { outline: none; border-color: var(--accent); }
+
+    /* ── EDIT PANEL ── */
+    .edit-panel {
+      display: none;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .edit-panel-inner {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .edit-section-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn-primary   { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; }
+    .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger    { background: var(--danger); color: #fff; }
+    .btn-warn      { background: var(--warn); color: #000; }
+    .btn-blue      { background: #3b82f6; color: #fff; }
+    .btn-full      { width: 100%; justify-content: center; }
+
+    /* season selector row */
+    .season-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .season-row select {
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      flex: 1;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      background: rgba(13,13,25,0.97);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 200;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      padding: 8px 4px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+    }
+    .nav-item.active { color: var(--accent); }
+    .nav-item .nav-icon { font-size: 1.4rem; transition: transform 0.2s; }
+    .nav-item.active .nav-icon { transform: scale(1.15); }
+    .nav-item .nav-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    /* ── CONTENT AREA ── */
+    .content { padding: 16px 16px 8px; max-width: 1400px; margin: auto; }
+
+    /* ── PLAYER CARDS ── */
+    .player-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .player-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.2s;
+      animation: fadeUp 0.3s ease both;
+      position: relative;
+      overflow: hidden;
+    }
+    .player-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      border-radius: 3px 0 0 3px;
+    }
+    .player-card:hover { border-color: var(--accent); transform: translateX(3px); background: #1e1e2d; }
+
+    .player-avatar {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #1a2f1a, #1a2030);
+      border: 2px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .avatar-initials {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 1px;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .avatar-number {
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+    .player-info { flex: 1; min-width: 0; }
+    .player-name {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .player-stats-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .pstat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .pstat .pval {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 0.5px;
+      line-height: 1;
+    }
+    .pstat .plbl {
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 1px;
+    }
+    .avg-good  { color: var(--accent); }
+    .avg-ok    { color: var(--warn); }
+    .avg-low   { color: var(--danger); }
+
+    /* ── MODAL ── */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 500;
+      overflow-y: auto;
+      padding: 20px 16px 100px;
+    }
+    .modal-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      max-width: 900px;
+      margin: auto;
+      overflow: hidden;
+    }
+    .modal-header {
+      background: linear-gradient(135deg, #0d1f12, #0a1520);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-player-name {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .modal-close {
+      font-size: 1.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-close:hover { color: var(--danger); }
+    .modal-body { padding: 20px 24px; }
+    .stat-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 16px;
+      text-align: center;
+      min-width: 70px;
+    }
+    .stat-pill .sp-val {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      letter-spacing: 1px;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stat-pill .sp-lbl {
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 3px;
+    }
+    .charts-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .chart-box {
+      flex: 1;
+      min-width: 260px;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+    .chart-box h4 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* ── STATS TABLE ── */
+    .table-wrap {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: calc(100vh - 260px);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      margin-top: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    thead { background: #11111e; position: sticky; top: 0; z-index: 10; }
+    thead th { position: sticky; top: 0; background: #11111e; z-index: 10; }
+    th {
+      padding: 12px 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+      border-bottom: 1px solid var(--border);
+      transition: color 0.2s;
+    }
+    th:hover { color: var(--accent); }
+    th.sort-asc::after  { content: " ▲"; color: var(--accent); }
+    th.sort-desc::after { content: " ▼"; color: var(--accent); }
+    td {
+      padding: 11px 10px;
+      text-align: center;
+      border-bottom: 1px solid rgba(42,42,58,0.5);
+      white-space: nowrap;
+    }
+    tbody tr { background: var(--card); transition: background 0.15s; }
+    tbody tr:hover { background: #1e1e2d; }
+    tbody tr:last-child td { border-bottom: none; }
+    .td-name { text-align: left; font-weight: 600; }
+    .td-avg-good { color: var(--accent); font-weight: 700; }
+    .td-avg-ok   { color: var(--warn); font-weight: 700; }
+    .td-avg-low  { color: var(--danger); font-weight: 700; }
+
+    /* ── BOX SCORES ── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--card);
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: #141420; }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .upload-label { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+    .upload-sub { font-size: 0.8rem; color: var(--muted); }
+
+    .progress-bar-wrap {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .progress-label { font-size: 0.85rem; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+    .progress-track { background: var(--border); border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width 0.4s; width: 0%; }
+
+    .game-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .game-card-info { flex: 1; min-width: 0; }
+    .game-card-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+    .game-card-players { font-size: 0.75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── LINEUP TRACKER ── */
+    .lineup-table-wrap {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: calc(100vh - 260px);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+    .lineup-table-wrap table th { background: #11111e; position: sticky; top: 0; z-index: 10; }
+    .lineup-cell { font-size: 0.72rem; line-height: 1.5; }
+    .lineup-cell .lc-games { font-weight: 700; color: var(--text); }
+    .lineup-cell .lc-avg   { font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.5px; }
+    .lineup-cell .lc-stats { color: var(--muted); }
+
+    /* heat map coloring for lineup spots */
+    .heat-hot  { background: rgba(0,255,135,0.08); }
+    .heat-warm { background: rgba(255,179,71,0.06); }
+    .heat-cold { background: rgba(255,59,92,0.05); }
+
+    /* ── SECTION HEADERS ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      color: var(--text);
+    }
+    .section-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      color: var(--muted);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .player-card:nth-child(1)  { animation-delay: 0.03s; }
+    .player-card:nth-child(2)  { animation-delay: 0.06s; }
+    .player-card:nth-child(3)  { animation-delay: 0.09s; }
+    .player-card:nth-child(4)  { animation-delay: 0.12s; }
+    .player-card:nth-child(5)  { animation-delay: 0.15s; }
+    .player-card:nth-child(6)  { animation-delay: 0.18s; }
+    .player-card:nth-child(7)  { animation-delay: 0.21s; }
+    .player-card:nth-child(8)  { animation-delay: 0.24s; }
+    .player-card:nth-child(9)  { animation-delay: 0.27s; }
+    .player-card:nth-child(10) { animation-delay: 0.30s; }
+
+    /* ── DIVIDER ── */
+    .edit-toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px;
+      background: var(--surface);
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .edit-toggle-btn:hover { color: var(--accent); }
+    .edit-toggle-btn .arrow { transition: transform 0.2s; }
+    .edit-toggle-btn.open .arrow { transform: rotate(180deg); }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state p { font-size: 0.9rem; line-height: 1.6; }
+
+    /* ── LINEUP BUILDER ── */
+    .sub-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      background: var(--surface);
+      padding: 6px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+    .sub-tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 8px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+      border: none;
+      background: transparent;
+      font-family: var(--font-body);
+    }
+    .sub-tab.active { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .strategy-card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .strategy-card:hover { border-color: var(--accent); }
+    .strategy-card.selected { border-color: var(--accent); background: rgba(0,255,135,0.05); }
+    .strategy-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .strategy-name { font-family: var(--font-display); font-size: 1rem; letter-spacing: 1px; margin-bottom: 4px; }
+    .strategy-desc { font-size: 0.68rem; color: var(--muted); line-height: 1.4; }
+
+    .lineup-builder-result {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .builder-header {
+      background: linear-gradient(135deg, #0d1f12, #0a1520);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .builder-header-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 2px;
+      color: var(--accent);
+    }
+    .lineup-spot-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(42,42,58,0.5);
+      transition: background 0.15s;
+    }
+    .lineup-spot-row:last-child { border-bottom: none; }
+    .lineup-spot-row:hover { background: #1e1e2d; }
+    .spot-number {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      color: var(--accent);
+      min-width: 32px;
+      text-align: center;
+      line-height: 1;
+    }
+    .spot-avatar {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1a2f1a, #1a2030);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .spot-avatar .si { font-family: var(--font-display); font-size: 0.9rem; color: var(--accent); line-height: 1; }
+    .spot-avatar .sn { font-size: 0.55rem; color: var(--muted); }
+    .spot-info { flex: 1; min-width: 0; }
+    .spot-name { font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spot-reason { font-size: 0.68rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+    .spot-stats { display: flex; gap: 10px; flex-shrink: 0; }
+    .spot-stat { text-align: center; }
+    .spot-stat .sv { font-family: var(--font-display); font-size: 0.9rem; line-height: 1; }
+    .spot-stat .sl { font-size: 0.55rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .spot-role-badge {
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .role-leadoff  { background: rgba(0,255,135,0.15); color: var(--accent); }
+    .role-heart    { background: rgba(0,201,255,0.15); color: var(--accent2); }
+    .role-power    { background: rgba(255,59,92,0.15);  color: var(--danger); }
+    .role-contact  { background: rgba(255,179,71,0.15); color: var(--warn); }
+    .role-bottom   { background: rgba(107,107,133,0.15); color: var(--muted); }
+    .role-rotation { background: rgba(139,92,246,0.15); color: #a78bfa; }
+
+    .builder-strategy-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 14px;
+      font-style: italic;
+      line-height: 1.5;
+    }
+    .player-count-warning {
+      background: rgba(255,179,71,0.1);
+      border: 1px solid rgba(255,179,71,0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      color: var(--warn);
+      margin-bottom: 12px;
+    }
+
+    /* ── DRAG AND DROP ── */
+    .lineup-spot-row {
+      cursor: grab;
+    }
+    .lineup-spot-row.dragging {
+      opacity: 0.4;
+      cursor: grabbing;
+    }
+    .lineup-spot-row.drag-over {
+      border-top: 2px solid var(--accent);
+      background: rgba(0,255,135,0.05);
+    }
+    .drag-handle {
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: grab;
+      padding: 0 4px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .lineup-action-bar {
+      display: flex;
+      gap: 8px;
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-wrap: wrap;
+    }
+    .saved-lineups-section {
+      margin-top: 14px;
+    }
+    .saved-lineup-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .saved-lineup-info { flex: 1; min-width: 0; }
+    .saved-lineup-name { font-weight: 700; font-size: 0.9rem; }
+    .saved-lineup-meta { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .share-text-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      color: var(--text);
+      white-space: pre-wrap;
+      line-height: 1.7;
+      margin-top: 10px;
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* ── LOGIN SCREEN ── */
+    .login-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 40px 24px;
+      text-align: center;
+    }
+    .login-screen::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(ellipse at 50% 30%, rgba(0,255,135,0.06) 0%, transparent 65%),
+                  radial-gradient(ellipse at 80% 80%, rgba(0,201,255,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .login-logo {
+      font-family: var(--font-display);
+      font-size: 3.5rem;
+      letter-spacing: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+    .login-tagline {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 48px;
+      letter-spacing: 0.5px;
+    }
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px 32px;
+      max-width: 360px;
+      width: 100%;
+      position: relative;
+    }
+    .login-icon { font-size: 3rem; margin-bottom: 16px; }
+    .login-title { font-family: var(--font-display); font-size: 1.6rem; letter-spacing: 2px; margin-bottom: 8px; }
+    .login-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 20px;
+      background: #fff;
+      color: #333;
+      border: none;
+      border-radius: 12px;
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-google:hover { background: #f5f5f5; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .login-footer {
+      margin-top: 24px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Assistant Coach ⚾</h1>
 
-    <!-- Auth Bar -->
-    <div id="authBar" style="background:#1e2937;padding:16px 20px;border-radius:16px;margin:15px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-      <span id="authStatus" style="font-size:1.1em;color:#94a3b8;">Not signed in — viewing read-only</span>
-      <div style="display:flex;gap:10px;">
-        <button id="signInBtn" onclick="signIn()" style="background:#4285f4;width:auto;padding:12px 20px;min-height:unset;font-size:1em;">🔐 Sign in with Google</button>
-        <button id="signOutBtn" onclick="signOut()" style="background:#475569;width:auto;padding:12px 20px;min-height:unset;font-size:1em;display:none;">Sign Out</button>
+  <!-- LOGIN SCREEN -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-logo">ASST COACH</div>
+    <div class="login-tagline">⚾ Youth Baseball Analytics</div>
+    <div class="login-card">
+      <div class="login-icon">📊</div>
+      <div class="login-title">COACH LOGIN</div>
+      <div class="login-desc">Sign in with your Google account to access your team stats, lineup tracker, and box score analytics.</div>
+      <button class="btn-google" onclick="if(typeof signIn==='function'){signIn();}else{alert('App still loading, please wait a moment and try again.');}">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A353" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/></svg>
+        Sign in with Google
+      </button>
+      <div class="login-footer">Your data is private and only visible to you.<br>Share your link with others for read access.</div>
+    </div>
+  </div>
+
+  <!-- APP CONTENT (hidden until signed in) -->
+  <div id="appContent" style="display:none;">
+
+  <!-- APP HEADER -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="app-logo">ASST COACH ⚾</div>
+      <div class="header-auth">
+        <span id="authStatus">Not signed in</span>
+        <button id="signInBtn" class="btn-sm" onclick="signIn()">🔐 Sign In</button>
+        <button id="signOutBtn" class="btn-sm" onclick="signOut()">Sign Out</button>
       </div>
     </div>
+  </header>
 
-    <!-- Edit-only sections (hidden for viewers) -->
-    <div id="editControls" style="display:none;">
-
-    <!-- Backup & Restore -->
-    <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
-      <h2>Backup & Restore</h2>
-      <button onclick="copyBackupToClipboard()" style="background:#eab308;color:black;">📋 COPY BACKUP TO CLIPBOARD</button>
-      <button onclick="downloadBackup()">⬇️ Download Backup</button>
-      <button onclick="document.getElementById('restoreInput').click()" style="background:#22c55e;color:black;">⬆️ Restore from Backup</button>
-      <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreBackup(event)">
-    </div>
-
-    <!-- Team Management -->
-    <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
-      <select id="teamSelect" onchange="switchTeam()"></select>
-      <button onclick="createNewTeam()">+ New Team</button>
-      <button onclick="removeCurrentTeam()">🗑️ Remove Team</button>
-    </div>
-
-    <!-- Import -->
-    <div style="background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
-      <input type="file" id="csvFile" accept=".csv" style="width:100%;margin-bottom:10px;">
-      <button onclick="importNewSeason()" style="background:#3b82f6;">📤 Import GameChanger CSV</button>
-    </div>
-
-    </div><!-- end editControls -->
-
-    <div id="seasonSelector" style="display:none;background:#1e2937;padding:20px;border-radius:16px;margin:15px 0;">
-      <div style="display:flex;gap:10px;align-items:center;">
-        <select id="seasonSelect" onchange="switchSeason()" style="flex:1;margin:0;"></select>
-        <button onclick="deleteCurrentSeason()" style="background:#ef4444;width:auto;min-width:120px;padding:18px;margin:0;white-space:nowrap;">🗑️ Delete CSV</button>
+  <!-- HERO BANNER -->
+  <div class="hero" id="heroBanner" style="display:none;">
+    <div class="hero-row">
+      <div class="hero-team">
+        <div class="team-badge">⚾</div>
+        <div class="team-info">
+          <h2 id="heroTeamName">—</h2>
+          <div class="season-label" id="heroSeason">—</div>
+        </div>
       </div>
+      <div class="hero-stats" id="heroStats"></div>
     </div>
+  </div>
 
-    <div id="summarySection" style="background:#334155;padding:18px;border-radius:12px;text-align:center;font-size:1.4em;margin:15px 0;display:none;"></div>
+  <!-- SELECTORS ROW (always visible when data exists) -->
+  <div class="selectors-row" id="selectorsRow" style="display:none;">
+    <select id="teamSelect" onchange="switchTeam()"></select>
+    <select id="seasonSelect" onchange="switchSeason()" style="display:none;"></select>
+  </div>
 
-    <!-- Tabs -->
-    <div class="tabs">
-      <div class="tab active" id="tabCards" onclick="switchTab(0)">Player Cards</div>
-      <div class="tab" id="tabTable" onclick="switchTab(1)">Team Stats Table</div>
-      <div class="tab" id="tabBoxScores" onclick="switchTab(2)">Box Scores</div>
-      <div class="tab" id="tabLineup" onclick="switchTab(3)">Lineup Tracker</div>
+  <!-- EDIT TOGGLE (only for owner) -->
+  <button class="edit-toggle-btn" id="editToggleBtn" style="display:none;" onclick="toggleEditPanel()">
+    <span>⚙ Manage</span><span class="arrow">▾</span>
+  </button>
+
+  <!-- EDIT PANEL -->
+  <div class="edit-panel" id="editControls">
+    <div class="edit-panel-inner">
+
+      <div class="edit-section-title">Backup & Restore</div>
+      <div class="btn-row">
+        <button class="btn btn-warn" onclick="copyBackupToClipboard()">📋 Copy Backup</button>
+        <button class="btn btn-secondary" onclick="downloadBackup()">⬇ Download</button>
+        <button class="btn btn-primary" onclick="document.getElementById('restoreInput').click()">⬆ Restore</button>
+        <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreBackup(event)">
+      </div>
+
+      <div class="edit-section-title" style="margin-top:8px;">Team</div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="createNewTeam()">+ New Team</button>
+        <button class="btn btn-danger" onclick="removeCurrentTeam()">🗑 Remove Team</button>
+      </div>
+
+      <div class="edit-section-title" style="margin-top:8px;">Import CSV</div>
+      <input type="file" id="csvFile" accept=".csv" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;width:100%;font-family:var(--font-body);font-size:0.85rem;">
+      <div class="btn-row">
+        <button class="btn btn-blue btn-full" onclick="importNewSeason()">📤 Import GameChanger CSV</button>
+      </div>
+
+      <div class="edit-section-title" style="margin-top:8px;">Season</div>
+      <div class="btn-row">
+        <button class="btn btn-danger" onclick="deleteCurrentSeason()">🗑 Delete Current Season</button>
+      </div>
+
     </div>
+  </div>
 
+  <!-- CONTENT PANELS -->
+  <main class="content">
     <div id="playerList"></div>
     <div id="teamTableContainer" style="display:none;"></div>
     <div id="boxScoresContainer" style="display:none;"></div>
     <div id="lineupTrackerContainer" style="display:none;"></div>
-  </div>
+  </main>
 
-  <!-- Player Modal -->
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav0" onclick="switchTab(0)">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">Roster</span>
+    </button>
+    <button class="nav-item" id="nav1" onclick="switchTab(1)">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Stats</span>
+    </button>
+    <button class="nav-item" id="nav2" onclick="switchTab(2)">
+      <span class="nav-icon">📸</span>
+      <span class="nav-label">Box Scores</span>
+    </button>
+    <button class="nav-item" id="nav3" onclick="switchTab(3)">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Lineup</span>
+    </button>
+  </nav>
+
+  </div><!-- end appContent -->
+
+  <!-- PLAYER MODAL -->
   <div id="playerModal" class="modal">
     <div class="modal-content">
-      <span class="close" onclick="closeModal()">×</span>
-      <h1 id="modalName"></h1>
-      <div id="modalBody"></div>
-      <div class="charts">
-        <div class="chart-container"><h3>Positions Played</h3><canvas id="posChart" height="380"></canvas></div>
-        <div class="chart-container"><h3>Hitting Breakdown</h3><canvas id="hittingChart" height="380"></canvas></div>
+      <div class="modal-header">
+        <div class="modal-player-name" id="modalName"></div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="modalBody"></div>
+        <div class="charts-row" style="margin-top:16px;">
+          <div class="chart-box"><h4>Positions Played</h4><canvas id="posChart"></canvas></div>
+          <div class="chart-box"><h4>Hitting Breakdown</h4><canvas id="hittingChart"></canvas></div>
+        </div>
       </div>
     </div>
   </div>
@@ -144,10 +1117,9 @@
     let posChart = null;
     let hittingChart = null;
     let currentSort = { col: -1, dir: 1 };
+    let editPanelOpen = false;
     const STORAGE_KEY = "AssistantCoach_Full_v2";
-
-    // BUG FIX #3: lineupGames is now keyed per team so games don't bleed across teams
-    let allLineupGames = {}; // { teamName: [...games] }
+    let allLineupGames = {};
 
     function getLineupGames() {
       if (!currentTeam) return [];
@@ -155,7 +1127,7 @@
       return allLineupGames[currentTeam];
     }
 
-    // ==================== FIREBASE ====================
+    // ── FIREBASE ──
     const firebaseConfig = {
       apiKey: "AIzaSyBkXyrFwEVtfNk7tAbBOaAAxQQcOENp0Hs",
       authDomain: "assistant-coach-ecfd7.firebaseapp.com",
@@ -166,80 +1138,87 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const db = firebase.firestore();
-    const OWNER_EMAIL = ""; // will be set automatically on first sign-in
-
+    const db   = firebase.firestore();
     let currentUser = null;
-    let isOwner = false;
-    let ownerEmail = localStorage.getItem("ACOwnerEmail") || "";
+    let isOwner = false; // true whenever any user is signed in
 
-    auth.onAuthStateChanged(async (user) => {
+    async function handleUser(user) {
       currentUser = user;
       if (user) {
-        // First person to sign in becomes the owner
-        if (!ownerEmail) {
-          ownerEmail = user.email;
-          localStorage.setItem("ACOwnerEmail", ownerEmail);
-          // Save owner email to Firestore so other devices know
-          await db.collection("config").doc("owner").set({ email: ownerEmail });
-        }
-        // Check if owner email is in Firestore (for new devices)
-        const ownerDoc = await db.collection("config").doc("owner").get();
-        if (ownerDoc.exists) ownerEmail = ownerDoc.data().email;
-
-        isOwner = (user.email === ownerEmail);
-        document.getElementById("authStatus").textContent = isOwner
-          ? `✅ Signed in as ${user.email} (Coach)`
-          : `👁️ Signed in as ${user.email} (View only)`;
+        isOwner = true; // every signed-in user is coach of their own data
+        const status = document.getElementById("authStatus");
+        status.textContent = `✅ ${user.email.split('@')[0]}`;
+        status.className = "signed-in";
         document.getElementById("signInBtn").style.display = "none";
         document.getElementById("signOutBtn").style.display = "inline-block";
-        document.getElementById("editControls").style.display = isOwner ? "block" : "none";
+        document.getElementById("editToggleBtn").style.display = "flex";
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("appContent").style.display = "block";
       } else {
         isOwner = false;
-        document.getElementById("authStatus").textContent = "Not signed in — viewing read-only";
+        currentUser = null;
+        allTeams = {}; allLineupGames = {}; players = []; currentTeam = "";
+        document.getElementById("authStatus").textContent = "Not signed in";
+        document.getElementById("authStatus").className = "";
         document.getElementById("signInBtn").style.display = "inline-block";
         document.getElementById("signOutBtn").style.display = "none";
+        document.getElementById("editToggleBtn").style.display = "none";
         document.getElementById("editControls").style.display = "none";
+        document.getElementById("loginScreen").style.display = "flex";
+        document.getElementById("appContent").style.display = "none";
+        return; // don't load data if signed out
       }
-      // Load data from Firebase (works for both owner and viewers)
       await loadFromFirebase();
-    });
+    }
+
+    auth.onAuthStateChanged(async (user) => { await handleUser(user); });
 
     function signIn() {
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider);
+      provider.setCustomParameters({ prompt: 'select_account' });
+      auth.signInWithPopup(provider)
+        .catch((error) => {
+          if (error.code === 'auth/popup-blocked') alert("Popup blocked — please allow popups for this site.");
+          else if (error.code !== 'auth/popup-closed-by-user') alert("Sign-in error: " + error.message);
+        });
+    }
+    function signOut() { auth.signOut(); }
+
+    function toggleEditPanel() {
+      editPanelOpen = !editPanelOpen;
+      document.getElementById("editControls").style.display = editPanelOpen ? "block" : "none";
+      document.getElementById("editToggleBtn").classList.toggle("open", editPanelOpen);
     }
 
-    function signOut() {
-      auth.signOut();
+    function userPath() {
+      // Each user gets their own Firestore subcollection keyed by their UID
+      return db.collection("users").doc(currentUser.uid);
     }
 
     async function loadFromFirebase() {
+      if (!currentUser) return;
       try {
-        const doc = await db.collection("coachData").doc("main").get();
-        if (doc.exists) {
-          const data = doc.data();
-          allTeams = data.teams || {};
-          allLineupGames = data.lineupGames || {};
-        } else {
-          // No Firebase data yet — try migrating from localStorage
+        const [teamsDoc, lineupsDoc] = await Promise.all([
+          userPath().collection("coachData").doc("teams").get(),
+          userPath().collection("coachData").doc("lineups").get()
+        ]);
+        let hasData = false;
+        if (teamsDoc.exists)   { allTeams = teamsDoc.data().teams || {};              hasData = true; }
+        if (lineupsDoc.exists) { allLineupGames = lineupsDoc.data().lineupGames || {}; hasData = true; }
+        if (!hasData) {
+          // First time this user signs in — migrate localStorage if present
           const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved && isOwner) {
+          if (saved) {
             const parsed = JSON.parse(saved);
             allTeams = parsed.teams || parsed;
             allLineupGames = parsed.lineupGames || {};
-            await saveData(); // push localStorage data up to Firebase
+            await saveData(); // push up to Firebase
           }
         }
       } catch(err) {
-        // Firebase unavailable — fall back to localStorage
         console.warn("Firebase unavailable, using localStorage:", err);
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          allTeams = parsed.teams || parsed;
-          allLineupGames = parsed.lineupGames || {};
-        }
+        if (saved) { const p = JSON.parse(saved); allTeams = p.teams||p; allLineupGames = p.lineupGames||{}; }
       }
       if (Object.keys(allTeams).length > 0 && !currentTeam) {
         currentTeam = Object.keys(allTeams)[0];
@@ -251,56 +1230,43 @@
     }
 
     async function saveData() {
-      if (!isOwner) return; // viewers cannot save
-      // Save to Firebase
-      try {
-        await db.collection("coachData").doc("main").set({
-          teams: allTeams,
-          lineupGames: allLineupGames,
-          updatedAt: new Date().toISOString()
-        });
-      } catch(err) {
-        console.warn("Firebase save failed, saving to localStorage:", err);
-      }
-      // Always keep localStorage in sync as backup
+      if (!currentUser) return;
+      try { await userPath().collection("coachData").doc("teams").set({ teams: allTeams, updatedAt: new Date().toISOString() }); }
+      catch(e) { console.warn("Firebase teams save failed:", e); }
+      try { await userPath().collection("coachData").doc("lineups").set({ lineupGames: allLineupGames, updatedAt: new Date().toISOString() }); }
+      catch(e) { console.warn("Firebase lineups save failed:", e); }
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }));
     }
 
     function copyBackupToClipboard() {
-      if (Object.keys(allTeams).length === 0) return alert("No data yet");
+      if (!Object.keys(allTeams).length) return alert("No data yet");
       navigator.clipboard.writeText(JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }, null, 2))
         .then(() => alert("✅ Backup copied!"));
     }
-
     function downloadBackup() {
-      if (Object.keys(allTeams).length === 0) return alert("No data");
-      const dataStr = JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }, null, 2);
-      const blob = new Blob([dataStr], {type: "application/json"});
-      const url = URL.createObjectURL(blob);
+      if (!Object.keys(allTeams).length) return alert("No data");
+      const blob = new Blob([JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }, null, 2)], {type:"application/json"});
       const a = document.createElement("a");
-      a.href = url; a.download = `AssistantCoach_Backup_${new Date().toISOString().slice(0,10)}.json`;
-      a.click(); URL.revokeObjectURL(url);
+      a.href = URL.createObjectURL(blob);
+      a.download = `AssistantCoach_Backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
     }
-
     function restoreBackup(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+      const file = event.target.files[0]; if (!file) return;
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
           const parsed = JSON.parse(e.target.result);
-          allTeams = parsed.teams || parsed;
-          allLineupGames = parsed.lineupGames || {};
+          allTeams = parsed.teams || parsed; allLineupGames = parsed.lineupGames || {};
           updateTeamSelector();
-          if (Object.keys(allTeams).length > 0) {
+          if (Object.keys(allTeams).length) {
             currentTeam = Object.keys(allTeams)[0];
             updateSeasonSelector();
             currentView = Object.keys(allTeams[currentTeam])[0] || "Career";
             loadCurrentView();
           }
-          saveData();
-          alert("✅ Backup restored!");
-        } catch(err) { alert("❌ Invalid backup file"); }
+          saveData(); alert("✅ Backup restored!");
+        } catch(e) { alert("❌ Invalid backup file"); }
       };
       reader.readAsText(file);
     }
@@ -319,16 +1285,15 @@
         if (t === currentTeam) opt.selected = true;
         sel.appendChild(opt);
       });
+      const hasTeams = Object.keys(allTeams).length > 0;
+      document.getElementById("selectorsRow").style.display = hasTeams ? "flex" : "none";
+      document.getElementById("heroBanner").style.display = hasTeams ? "block" : "none";
     }
 
     function switchTeam() {
       currentTeam = document.getElementById("teamSelect").value;
       currentView = "Career";
-      // BUG FIX #5: update season selector when switching teams
-      if (currentTeam) {
-        updateSeasonSelector();
-        loadCurrentView();
-      }
+      if (currentTeam) { updateSeasonSelector(); loadCurrentView(); }
     }
 
     function importNewSeason() {
@@ -337,37 +1302,21 @@
       if (!file) return alert("Select CSV file");
       const seasonName = prompt("Season name:", "Spring 2026");
       if (!seasonName) return;
-
       Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
+        header: true, skipEmptyLines: true,
         complete: (results) => {
           const seasonPlayers = results.data.map(row => {
             const first = (row["First"] || row["First name"] || "").trim();
-            const last = (row["Last"] || row["Last name"] || "").trim();
-            const name = first && last ? `${first} ${last}` : first || last || "";
+            const last  = (row["Last"]  || row["Last name"]  || "").trim();
+            const name  = first && last ? `${first} ${last}` : first || last || "";
             if (name.length < 3) return null;
-
             let num = "?";
-            const possibleCols = ["#", "Number", "No", "Jersey", "Player #", "ID"];
-            for (let col of possibleCols) {
-              if (row[col] && row[col].toString().trim() !== "") {
-                num = row[col].toString().trim();
-                break;
-              }
+            for (let col of ["#","Number","No","Jersey","Player #","ID"]) {
+              if (row[col] && row[col].toString().trim() !== "") { num = row[col].toString().trim(); break; }
             }
-            if (num === "?") {
-              const rowStr = JSON.stringify(row);
-              const found = rowStr.match(/\b\d{1,2}\b/);
-              if (found) num = found[0];
-            }
-
+            if (num === "?") { const found = JSON.stringify(row).match(/\b\d{1,2}\b/); if (found) num = found[0]; }
             return {
-              number: num,
-              name: name,
-              // BUG FIX #6: use full name as merge key instead of just firstName
-              mergeKey: name.toLowerCase(),
-              firstName: first.toLowerCase(),
+              number: num, name, mergeKey: name.toLowerCase(), firstName: first.toLowerCase(),
               gp: parseInt(row["GP"]||0), atBats: parseInt(row["AB"]||0), hits: parseInt(row["H"]||0),
               walks: parseInt(row["BB"]||0), homeRuns: parseInt(row["HR"]||0), rbis: parseInt(row["RBI"]||0),
               strikeouts: parseInt(row["SO"]||0), inningsPitched: parseFloat(row["IP"]||0),
@@ -379,13 +1328,10 @@
               posRF: parseFloat(row["DEF_RF"]||0)
             };
           }).filter(p => p);
-
           if (!allTeams[currentTeam]) allTeams[currentTeam] = {};
           allTeams[currentTeam][seasonName] = seasonPlayers;
           currentView = seasonName;
-          updateSeasonSelector();
-          loadCurrentView();
-          saveData();
+          updateSeasonSelector(); loadCurrentView(); saveData();
           alert(`✅ Imported ${seasonPlayers.length} players`);
         }
       });
@@ -402,23 +1348,33 @@
           sel.appendChild(opt);
         });
       }
-      document.getElementById("seasonSelector").style.display = "block";
+      sel.style.display = "block";
     }
 
     function switchSeason() { currentView = document.getElementById("seasonSelect").value; loadCurrentView(); }
 
     function deleteCurrentSeason() {
-      if (!currentTeam || !currentView || currentView === "Career") {
-        return alert("Select a specific season to delete — Career view cannot be deleted.");
-      }
-      if (!confirm(`Delete season "${currentView}" from ${currentTeam}? This cannot be undone.`)) return;
+      if (!currentTeam || !currentView || currentView === "Career")
+        return alert("Select a specific season — Career view cannot be deleted.");
+      if (!confirm(`Delete season "${currentView}" from ${currentTeam}? Cannot be undone.`)) return;
       delete allTeams[currentTeam][currentView];
       saveData();
-      // Reset to Career or first remaining season
       const remaining = Object.keys(allTeams[currentTeam]);
       currentView = remaining.length > 0 ? remaining[0] : "Career";
-      updateSeasonSelector();
-      loadCurrentView();
+      updateSeasonSelector(); loadCurrentView();
+    }
+
+    function removeCurrentTeam() {
+      if (!currentTeam || !confirm(`Delete team ${currentTeam}?`)) return;
+      delete allTeams[currentTeam]; delete allLineupGames[currentTeam];
+      currentTeam = Object.keys(allTeams)[0] || "";
+      players = []; updateTeamSelector(); saveData();
+      if (currentTeam) { currentView = "Career"; updateSeasonSelector(); loadCurrentView(); }
+      else {
+        currentView = "Career";
+        ["playerList","teamTableContainer","boxScoresContainer","lineupTrackerContainer"].forEach(id => document.getElementById(id).innerHTML = "");
+        document.getElementById("heroBanner").style.display = "none";
+      }
     }
 
     function loadCurrentView() {
@@ -427,228 +1383,236 @@
       if (currentView === "Career") {
         const map = {};
         Object.values(teamSeasons).flat().forEach(p => {
-          // BUG FIX #6: use full name (mergeKey) instead of firstName to avoid collisions
           const key = p.mergeKey || p.name.toLowerCase();
           if (!map[key]) map[key] = {...p, gp:0,atBats:0,hits:0,walks:0,homeRuns:0,rbis:0,strikeouts:0,inningsPitched:0,earnedRuns:0};
           const t = map[key];
           ["gp","atBats","hits","walks","homeRuns","rbis","strikeouts","inningsPitched","earnedRuns",
-           "posP","posC","pos1B","pos2B","pos3B","posSS","posLF","posCF","posRF"].forEach(k => {
-            t[k] = (t[k] || 0) + (p[k] || 0);
-          });
+           "posP","posC","pos1B","pos2B","pos3B","posSS","posLF","posCF","posRF"]
+           .forEach(k => { t[k] = (t[k]||0) + (p[k]||0); });
         });
         players = Object.values(map);
       } else {
         players = teamSeasons[currentView] || [];
       }
       players.sort((a,b) => (b.atBats ? b.hits/b.atBats : 0) - (a.atBats ? a.hits/a.atBats : 0));
-      currentSort = { col: -1, dir: 1 }; // reset sort state on view change
-      renderSummary();
+      currentSort = { col: -1, dir: 1 };
+      // Clear lineup builder state when team/season changes
+      currentBuiltLineup = [];
+      excludedPlayers = new Set();
+      pickupPlayers = [];
+      renderHero();
       renderRoster();
       renderTeamTable();
     }
 
-    function renderSummary() {
-      let hr=0, rbi=0, ab=0, h=0;
-      players.forEach(p=>{hr+=p.homeRuns||0; rbi+=p.rbis||0; ab+=p.atBats||0; h+=p.hits||0;});
+    function avgColor(avg) {
+      const v = parseFloat(avg);
+      if (v >= 0.300) return "avg-good";
+      if (v >= 0.200) return "avg-ok";
+      return "avg-low";
+    }
+    function tdAvgColor(avg) {
+      const v = parseFloat(avg);
+      if (v >= 0.300) return "td-avg-good";
+      if (v >= 0.200) return "td-avg-ok";
+      return "td-avg-low";
+    }
+
+    function renderHero() {
+      let hr=0, rbi=0, ab=0, h=0, bb=0;
+      players.forEach(p => { hr+=p.homeRuns||0; rbi+=p.rbis||0; ab+=p.atBats||0; h+=p.hits||0; bb+=p.walks||0; });
       const avg = ab ? (h/ab).toFixed(3) : ".000";
-      document.getElementById("summarySection").innerHTML = `Team AVG: <strong>${avg}</strong> | HR: <strong>${hr}</strong> | RBI: <strong>${rbi}</strong>`;
-      document.getElementById("summarySection").style.display = "block";
+      const obp = (ab+bb) ? ((h+bb)/(ab+bb)).toFixed(3) : ".000";
+      document.getElementById("heroTeamName").textContent = currentTeam;
+      document.getElementById("heroSeason").textContent = currentView + " · " + players.length + " players";
+      document.getElementById("heroStats").innerHTML = `
+        <div class="hero-stat"><div class="val">${avg}</div><div class="lbl">AVG</div></div>
+        <div class="hero-stat"><div class="val">${obp}</div><div class="lbl">OBP</div></div>
+        <div class="hero-stat"><div class="val">${hr}</div><div class="lbl">HR</div></div>
+        <div class="hero-stat"><div class="val">${rbi}</div><div class="lbl">RBI</div></div>
+      `;
+      document.getElementById("heroBanner").style.display = "block";
+    }
+
+    function getInitials(name) {
+      const parts = name.trim().split(" ");
+      if (parts.length >= 2) return parts[0][0] + parts[parts.length-1][0];
+      return name.slice(0,2).toUpperCase();
     }
 
     function renderRoster() {
       const container = document.getElementById("playerList");
-      container.innerHTML = `<h2>${currentTeam} — ${currentView} (${players.length} players)</h2>`;
+      if (!players.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚾</div><p>No players yet.<br>Import a GameChanger CSV to get started.</p></div>`;
+        return;
+      }
+      let html = `<div class="section-header">
+        <span class="section-title">ROSTER</span>
+        <span class="section-badge">${players.length} Players</span>
+      </div><div class="player-grid">`;
+
       players.forEach((p, i) => {
         const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
-        const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
-        // BUG FIX #4: correct SLG formula — singles + 4×HR (HR already counted in hits, so +3 extra per HR)
+        const obp = (p.atBats+p.walks) ? ((p.hits+p.walks)/(p.atBats+p.walks)).toFixed(3) : ".000";
         const singles = Math.max(0, p.hits - p.homeRuns);
-        const slg = p.atBats ? ((singles + 4 * (p.homeRuns||0)) / p.atBats).toFixed(3) : ".000";
-        const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
-        const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
-        const bo = p.battingOrder ? `#${p.battingOrder}` : "—";
-        const div = document.createElement("div");
-        div.className = "player-card";
-        div.innerHTML = `<div class="number">#${p.number}</div><div style="flex:1"><strong style="font-size:1.45em;">${p.name}</strong><br>GP: ${p.gp} | AVG: <strong>${avg}</strong> | OBP: ${obp} | SLG: ${slg} | H: <strong>${p.hits}</strong><br>K%: ${kPct} | BB%: ${bbPct} | BO: <strong>${bo}</strong></div>`;
-        div.onclick = () => showProfile(i);
-        container.appendChild(div);
+        const slg = p.atBats ? ((singles + 4*(p.homeRuns||0)) / p.atBats).toFixed(3) : ".000";
+        const ops = (parseFloat(obp)+parseFloat(slg)).toFixed(3);
+        const kPct = p.atBats ? ((p.strikeouts/p.atBats)*100).toFixed(0)+"%" : "—";
+        const bo = p.battingOrder ? "#"+p.battingOrder : "—";
+        const cls = avgColor(avg);
+        html += `<div class="player-card" onclick="showProfile(${i})">
+          <div class="player-avatar">
+            <div class="avatar-initials">${getInitials(p.name)}</div>
+            <div class="avatar-number">#${p.number}</div>
+          </div>
+          <div class="player-info">
+            <div class="player-name">${p.name}</div>
+            <div class="player-meta">GP: ${p.gp} &nbsp;·&nbsp; BO: ${bo} &nbsp;·&nbsp; K%: ${kPct}</div>
+            <div class="player-stats-row">
+              <div class="pstat"><span class="pval ${cls}">${avg}</span><span class="plbl">AVG</span></div>
+              <div class="pstat"><span class="pval">${obp}</span><span class="plbl">OBP</span></div>
+              <div class="pstat"><span class="pval">${slg}</span><span class="plbl">SLG</span></div>
+              <div class="pstat"><span class="pval">${p.hits}</span><span class="plbl">H</span></div>
+              <div class="pstat"><span class="pval">${p.homeRuns||0}</span><span class="plbl">HR</span></div>
+              <div class="pstat"><span class="pval">${p.rbis||0}</span><span class="plbl">RBI</span></div>
+            </div>
+          </div>
+        </div>`;
       });
+      html += `</div>`;
+      container.innerHTML = html;
     }
 
     function showProfile(i) {
       const p = players[i];
-      const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
-      const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
-      // BUG FIX #4: correct SLG in profile modal too
+      const avg = p.atBats ? (p.hits/p.atBats).toFixed(3) : ".000";
+      const obp = (p.atBats+p.walks) ? ((p.hits+p.walks)/(p.atBats+p.walks)).toFixed(3) : ".000";
       const singles = Math.max(0, p.hits - p.homeRuns);
-      const slg = p.atBats ? ((singles + 4 * (p.homeRuns||0)) / p.atBats).toFixed(3) : ".000";
-      const ops = (parseFloat(obp) + parseFloat(slg)).toFixed(2);
-      const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
-      const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
-      const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
+      const slg = p.atBats ? ((singles+4*(p.homeRuns||0))/p.atBats).toFixed(3) : ".000";
+      const ops = (parseFloat(obp)+parseFloat(slg)).toFixed(3);
+      const kPct = p.atBats ? ((p.strikeouts/p.atBats)*100).toFixed(1)+"%" : "—";
+      const bbPct = p.atBats ? ((p.walks/p.atBats)*100).toFixed(1)+"%" : "—";
+      const era = p.inningsPitched > 0 ? (p.earnedRuns*7/p.inningsPitched).toFixed(2) : "—";
 
       document.getElementById("modalName").textContent = `#${p.number} ${p.name}`;
       document.getElementById("modalBody").innerHTML = `
-        <p>GP: ${p.gp} | AVG: ${avg} | OBP: ${obp} | SLG: ${slg} | OPS: ${ops} | H: <strong>${p.hits}</strong> | BO: <strong>${p.battingOrder ? "#"+p.battingOrder : "—"}</strong></p>
-        <p>HR: ${p.homeRuns} | RBI: ${p.rbis} | BB: ${p.walks} (${bbPct}) | SO: ${p.strikeouts} (${kPct})</p>
-        ${p.inningsPitched > 0 ? `<p>IP: ${p.inningsPitched.toFixed(1)} | ERA: ${era}</p>` : ''}
-      `;
+        <div class="stat-pills">
+          <div class="stat-pill"><div class="sp-val">${avg}</div><div class="sp-lbl">AVG</div></div>
+          <div class="stat-pill"><div class="sp-val">${obp}</div><div class="sp-lbl">OBP</div></div>
+          <div class="stat-pill"><div class="sp-val">${slg}</div><div class="sp-lbl">SLG</div></div>
+          <div class="stat-pill"><div class="sp-val">${ops}</div><div class="sp-lbl">OPS</div></div>
+          <div class="stat-pill"><div class="sp-val">${p.hits}</div><div class="sp-lbl">H</div></div>
+          <div class="stat-pill"><div class="sp-val">${p.homeRuns||0}</div><div class="sp-lbl">HR</div></div>
+          <div class="stat-pill"><div class="sp-val">${p.rbis||0}</div><div class="sp-lbl">RBI</div></div>
+          <div class="stat-pill"><div class="sp-val">${p.walks}</div><div class="sp-lbl">BB</div></div>
+          <div class="stat-pill"><div class="sp-val">${p.strikeouts}</div><div class="sp-lbl">SO</div></div>
+          <div class="stat-pill"><div class="sp-val">${p.gp}</div><div class="sp-lbl">GP</div></div>
+          ${p.inningsPitched > 0 ? `<div class="stat-pill"><div class="sp-val">${p.inningsPitched.toFixed(1)}</div><div class="sp-lbl">IP</div></div><div class="stat-pill"><div class="sp-val">${era}</div><div class="sp-lbl">ERA</div></div>` : ''}
+        </div>`;
+
       document.getElementById("playerModal").style.display = "block";
+      document.body.style.overflow = "hidden";
 
       setTimeout(() => {
         const positions = [
-          {name:"P", val:p.posP}, {name:"C", val:p.posC}, {name:"1B", val:p.pos1B},
-          {name:"2B", val:p.pos2B}, {name:"3B", val:p.pos3B}, {name:"SS", val:p.posSS},
-          {name:"LF", val:p.posLF}, {name:"CF", val:p.posCF}, {name:"RF", val:p.posRF}
+          {name:"P",val:p.posP},{name:"C",val:p.posC},{name:"1B",val:p.pos1B},
+          {name:"2B",val:p.pos2B},{name:"3B",val:p.pos3B},{name:"SS",val:p.posSS},
+          {name:"LF",val:p.posLF},{name:"CF",val:p.posCF},{name:"RF",val:p.posRF}
         ];
         const totalPos = positions.reduce((a,b)=>a+b.val,0);
-        const filteredPos = positions.filter(pos => pos.val > 0.5);
-
+        const filteredPos = positions.filter(pos=>pos.val>0.5);
         if (posChart) posChart.destroy();
         posChart = new Chart(document.getElementById("posChart"), {
-          type: 'pie',
-          data: { labels: filteredPos.map(pos => pos.name),
-            datasets: [{ data: filteredPos.map(pos => pos.val), backgroundColor: ['#22c55e','#3b82f6','#eab308','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'] }]
-          },
-          options: {
-            plugins: {
-              datalabels: {
-                formatter: (value) => totalPos > 0 ? Math.round((value / totalPos) * 100) + '%' : '',
-                color: '#fff', font: { weight: 'bold', size: 16 }
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
+          type:'pie',
+          data:{ labels:filteredPos.map(p=>p.name), datasets:[{data:filteredPos.map(p=>p.val), backgroundColor:['#00ff87','#00c9ff','#eab308','#ff3b5c','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'], borderWidth:2, borderColor:'#13131a'}]},
+          options:{plugins:{datalabels:{formatter:(v)=>totalPos>0?Math.round((v/totalPos)*100)+'%':'',color:'#fff',font:{weight:'bold',size:13}}}},
+          plugins:[ChartDataLabels]
         });
-
         const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
-        const totalHitting = (p.homeRuns||0) + singles + (p.walks||0) + (p.strikeouts||0) + otherOuts;
-
+        const totalHitting = (p.homeRuns||0)+singles+(p.walks||0)+(p.strikeouts||0)+otherOuts;
         if (hittingChart) hittingChart.destroy();
         hittingChart = new Chart(document.getElementById("hittingChart"), {
-          type: 'pie',
-          data: {
-            labels: ['HR', 'Singles', 'Walks', 'Strikeouts', 'Other Outs'],
-            datasets: [{ data: [p.homeRuns||0, singles, p.walks||0, p.strikeouts||0, otherOuts], backgroundColor: ['#ef4444', '#eab308', '#3b82f6', '#f97316', '#64748b'] }]
-          },
-          options: {
-            plugins: {
-              datalabels: {
-                formatter: (value) => totalHitting > 0 ? Math.round((value / totalHitting) * 100) + '%' : '',
-                color: '#fff', font: { weight: 'bold', size: 16 }
-              }
-            }
-          },
-          plugins: [ChartDataLabels]
+          type:'pie',
+          data:{labels:['HR','Other Hits','Walks','Strikeouts','Ball in Play Outs'],datasets:[{data:[p.homeRuns||0,singles,p.walks||0,p.strikeouts||0,otherOuts],backgroundColor:['#ff3b5c','#00ff87','#00c9ff','#f97316','#334155'],borderWidth:2,borderColor:'#13131a'}]},
+          options:{plugins:{datalabels:{formatter:(v)=>totalHitting>0?Math.round((v/totalHitting)*100)+'%':'',color:'#fff',font:{weight:'bold',size:13}}}},
+          plugins:[ChartDataLabels]
         });
-      }, 300);
+      }, 200);
     }
 
-    function closeModal() { document.getElementById("playerModal").style.display = "none"; }
+    function closeModal() {
+      document.getElementById("playerModal").style.display = "none";
+      document.body.style.overflow = "";
+    }
 
     function switchTab(n) {
-      document.querySelectorAll('.tab').forEach((tab, i) => tab.classList.toggle('active', i === n));
-      document.getElementById("playerList").style.display = n === 0 ? "block" : "none";
-      document.getElementById("teamTableContainer").style.display = n === 1 ? "block" : "none";
-      document.getElementById("boxScoresContainer").style.display = n === 2 ? "block" : "none";
-      document.getElementById("lineupTrackerContainer").style.display = n === 3 ? "block" : "none";
-
-      if (n === 1) renderTeamTable();
-      if (n === 2) renderBoxScores();
-      if (n === 3) renderLineupTracker();
+      for (let i=0; i<4; i++) document.getElementById("nav"+i).classList.toggle("active", i===n);
+      document.getElementById("playerList").style.display          = n===0 ? "block" : "none";
+      document.getElementById("teamTableContainer").style.display  = n===1 ? "block" : "none";
+      document.getElementById("boxScoresContainer").style.display  = n===2 ? "block" : "none";
+      document.getElementById("lineupTrackerContainer").style.display = n===3 ? "block" : "none";
+      if (n===1) renderTeamTable();
+      if (n===2) renderBoxScores();
+      if (n===3) renderLineupTracker();
     }
 
-    // BUG FIX #2: sortTable now actually re-renders the table with sorted data
     function sortTable(colIndex) {
-      if (currentSort.col === colIndex) {
-        currentSort.dir *= -1;
-      } else {
-        currentSort.col = colIndex;
-        currentSort.dir = 1;
-      }
-
-      // Define how to extract a sortable value from each player row by column index
-      const getValue = (p, col) => {
-        const singles = Math.max(0, p.hits - p.homeRuns);
-        const ab = p.atBats || 0;
-        const avg = ab ? p.hits / ab : 0;
-        const slg = ab ? (singles + 4 * (p.homeRuns||0)) / ab : 0;
-        const obp = (ab + p.walks) ? (p.hits + p.walks) / (ab + p.walks) : 0;
-        const totalPos = (p.posP + p.posC + p.pos1B + p.pos2B + p.pos3B + p.posSS + p.posLF + p.posCF + p.posRF) || 1;
-        switch(col) {
-          case 0: return parseInt(p.number) || 0;
-          case 1: return p.name;
-          case 2: return p.gp || 0;
-          case 3: return avg;
-          case 4: return p.hits || 0;
-          case 5: return slg;
-          case 6: return obp;
-          case 7: return obp + slg;
-          case 8: return p.battingOrder || 0;
-          case 9: return p.homeRuns || 0;
-          case 10: return p.rbis || 0;
-          case 11: return p.walks || 0;
-          case 12: return ab ? p.walks / ab : 0;
-          case 13: return p.strikeouts || 0;
-          case 14: return ab ? p.strikeouts / ab : 0;
-          case 15: return p.inningsPitched || 0;
-          case 16: return p.inningsPitched > 0 ? p.earnedRuns * 7 / p.inningsPitched : 999;
-          case 17: return p.inningsPitched > 0 ? (p.hits + p.walks) / p.inningsPitched : 999;
-          case 18: return p.posP / totalPos;
-          case 19: return p.posC / totalPos;
-          case 20: return p.pos1B / totalPos;
-          case 21: return p.pos2B / totalPos;
-          case 22: return p.pos3B / totalPos;
-          case 23: return p.posSS / totalPos;
-          case 24: return p.posLF / totalPos;
-          case 25: return p.posCF / totalPos;
-          case 26: return p.posRF / totalPos;
-          default: return 0;
+      if (currentSort.col===colIndex) currentSort.dir*=-1;
+      else { currentSort.col=colIndex; currentSort.dir=1; }
+      const getValue = (p,col) => {
+        const singles=Math.max(0,p.hits-p.homeRuns), ab=p.atBats||0;
+        const slg=ab?(singles+4*(p.homeRuns||0))/ab:0;
+        const obp=(ab+p.walks)?(p.hits+p.walks)/(ab+p.walks):0;
+        const totalPos=(p.posP+p.posC+p.pos1B+p.pos2B+p.pos3B+p.posSS+p.posLF+p.posCF+p.posRF)||1;
+        switch(col){
+          case 0:return parseInt(p.number)||0; case 1:return p.name; case 2:return p.gp||0;
+          case 3:return ab?p.hits/ab:0; case 4:return p.hits||0; case 5:return slg;
+          case 6:return obp; case 7:return obp+slg; case 8:return p.battingOrder||0;
+          case 9:return p.homeRuns||0; case 10:return p.rbis||0; case 11:return p.walks||0;
+          case 12:return ab?p.walks/ab:0; case 13:return p.strikeouts||0; case 14:return ab?p.strikeouts/ab:0;
+          case 15:return p.inningsPitched||0; case 16:return p.inningsPitched>0?p.earnedRuns*7/p.inningsPitched:999;
+          case 17:return p.inningsPitched>0?(p.hits+p.walks)/p.inningsPitched:999;
+          case 18:return p.posP/totalPos; case 19:return p.posC/totalPos; case 20:return p.pos1B/totalPos;
+          case 21:return p.pos2B/totalPos; case 22:return p.pos3B/totalPos; case 23:return p.posSS/totalPos;
+          case 24:return p.posLF/totalPos; case 25:return p.posCF/totalPos; case 26:return p.posRF/totalPos;
+          default:return 0;
         }
       };
-
-      players.sort((a, b) => {
-        const va = getValue(a, colIndex);
-        const vb = getValue(b, colIndex);
-        if (typeof va === 'string') return currentSort.dir * va.localeCompare(vb);
-        return currentSort.dir * (va - vb);
+      players.sort((a,b)=>{
+        const va=getValue(a,colIndex), vb=getValue(b,colIndex);
+        return typeof va==='string' ? currentSort.dir*va.localeCompare(vb) : currentSort.dir*(va-vb);
       });
-
       renderTeamTable();
     }
 
     function renderTeamTable() {
       const container = document.getElementById("teamTableContainer");
       const cols = ['#','Player','GP','AVG','H','SLG','OBP','OPS','BO','HR','RBI','BB','BB%','SO','K%','IP','ERA','WHIP','P%','C%','1B%','2B%','3B%','SS%','LF%','CF%','RF%'];
-
-      let html = `<h2>${currentTeam} — ${currentView} Team Stats Table</h2>`;
-      html += `<table id="statsTable"><thead><tr>`;
-      cols.forEach((col, i) => {
-        let cls = '';
-        if (currentSort.col === i) cls = currentSort.dir === 1 ? 'sort-asc' : 'sort-desc';
+      let html = `<div class="section-header"><span class="section-title">TEAM STATS</span><span class="section-badge">${currentView}</span></div>
+        <div class="table-wrap"><table><thead><tr>`;
+      cols.forEach((col,i) => {
+        let cls = currentSort.col===i ? (currentSort.dir===1?'sort-asc':'sort-desc') : '';
         html += `<th class="${cls}" onclick="sortTable(${i})">${col}</th>`;
       });
       html += `</tr></thead><tbody>`;
-
       players.forEach(p => {
-        const singles = Math.max(0, p.hits - p.homeRuns);
-        const avg = p.atBats ? (p.hits / p.atBats).toFixed(3) : ".000";
-        // BUG FIX #4: correct SLG in table too
-        const slg = p.atBats ? ((singles + 4 * (p.homeRuns||0)) / p.atBats).toFixed(3) : ".000";
-        const obp = (p.atBats + p.walks) ? ((p.hits + p.walks)/(p.atBats + p.walks)).toFixed(3) : ".000";
-        const ops = (parseFloat(obp) + parseFloat(slg)).toFixed(2);
-        const bbPct = p.atBats ? ((p.walks / p.atBats) * 100).toFixed(1) + "%" : "—";
-        const kPct = p.atBats ? ((p.strikeouts / p.atBats) * 100).toFixed(1) + "%" : "—";
-        const bo = p.battingOrder ? p.battingOrder : "—";
-        const ip = p.inningsPitched ? p.inningsPitched.toFixed(1) : "—";
-        const era = p.inningsPitched > 0 ? (p.earnedRuns * 7 / p.inningsPitched).toFixed(2) : "—";
-        const whip = p.inningsPitched > 0 ? ((p.hits + p.walks)/p.inningsPitched).toFixed(2) : "—";
-        const totalPos = (p.posP + p.posC + p.pos1B + p.pos2B + p.pos3B + p.posSS + p.posLF + p.posCF + p.posRF) || 1;
-
+        const singles=Math.max(0,p.hits-p.homeRuns);
+        const avg=p.atBats?(p.hits/p.atBats).toFixed(3):".000";
+        const slg=p.atBats?((singles+4*(p.homeRuns||0))/p.atBats).toFixed(3):".000";
+        const obp=(p.atBats+p.walks)?((p.hits+p.walks)/(p.atBats+p.walks)).toFixed(3):".000";
+        const ops=(parseFloat(obp)+parseFloat(slg)).toFixed(2);
+        const bbPct=p.atBats?((p.walks/p.atBats)*100).toFixed(1)+"%":"—";
+        const kPct=p.atBats?((p.strikeouts/p.atBats)*100).toFixed(1)+"%":"—";
+        const totalPos=(p.posP+p.posC+p.pos1B+p.pos2B+p.pos3B+p.posSS+p.posLF+p.posCF+p.posRF)||1;
+        const avgCls = tdAvgColor(avg);
         html += `<tr>
-          <td>#${p.number}</td><td>${p.name}</td><td>${p.gp}</td><td>${avg}</td><td>${p.hits}</td><td>${slg}</td><td>${obp}</td><td>${ops}</td><td>${bo}</td>
-          <td>${p.homeRuns}</td><td>${p.rbis}</td><td>${p.walks}</td><td>${bbPct}</td><td>${p.strikeouts}</td><td>${kPct}</td>
-          <td>${ip}</td><td>${era}</td><td>${whip}</td>
+          <td>#${p.number}</td><td class="td-name">${p.name}</td><td>${p.gp}</td>
+          <td class="${avgCls}">${avg}</td><td>${p.hits}</td><td>${slg}</td><td>${obp}</td><td>${ops}</td>
+          <td>${p.battingOrder||"—"}</td><td>${p.homeRuns||0}</td><td>${p.rbis||0}</td><td>${p.walks}</td>
+          <td>${bbPct}</td><td>${p.strikeouts}</td><td>${kPct}</td>
+          <td>${p.inningsPitched?p.inningsPitched.toFixed(1):"—"}</td>
+          <td>${p.inningsPitched>0?(p.earnedRuns*7/p.inningsPitched).toFixed(2):"—"}</td>
+          <td>${p.inningsPitched>0?((p.hits+p.walks)/p.inningsPitched).toFixed(2):"—"}</td>
           <td>${Math.round(p.posP/totalPos*100)}%</td><td>${Math.round(p.posC/totalPos*100)}%</td>
           <td>${Math.round(p.pos1B/totalPos*100)}%</td><td>${Math.round(p.pos2B/totalPos*100)}%</td>
           <td>${Math.round(p.pos3B/totalPos*100)}%</td><td>${Math.round(p.posSS/totalPos*100)}%</td>
@@ -656,149 +1620,782 @@
           <td>${Math.round(p.posRF/totalPos*100)}%</td>
         </tr>`;
       });
-      html += `</tbody></table>`;
+      html += `</tbody></table></div>`;
       container.innerHTML = html;
     }
 
-    // BUG FIX #1: removeCurrentTeam now clears the UI when no teams remain
-    function removeCurrentTeam() {
-      if (!currentTeam || !confirm(`Delete team ${currentTeam}?`)) return;
-      delete allTeams[currentTeam];
-      delete allLineupGames[currentTeam];
-      currentTeam = Object.keys(allTeams)[0] || "";
-      players = [];
-      updateTeamSelector();
-      saveData();
-
-      if (currentTeam) {
-        currentView = "Career";
-        updateSeasonSelector();
-        loadCurrentView();
-      } else {
-        // No teams left — clear everything
-        currentView = "Career";
-        document.getElementById("playerList").innerHTML = "";
-        document.getElementById("teamTableContainer").innerHTML = "";
-        document.getElementById("boxScoresContainer").innerHTML = "";
-        document.getElementById("lineupTrackerContainer").innerHTML = "";
-        document.getElementById("summarySection").style.display = "none";
-        document.getElementById("seasonSelector").style.display = "none";
-      }
-    }
-
-    // ==================== LINEUP TRACKER ====================
-
+    // ── BOX SCORES ──
     function renderBoxScores() {
       const lineupGames = getLineupGames();
       const container = document.getElementById("boxScoresContainer");
-      let html = `<h2>Box Scores - ${currentTeam}</h2>
-        <label style="display:block;background:#22c55e;color:black;text-align:center;padding:18px;border-radius:16px;font-size:1.2em;font-weight:bold;cursor:pointer;margin-bottom:15px;">
-          📸 Upload Box Score Photos
-          <input type="file" accept="image/*" multiple style="display:none" onchange="addNewLineupGame(event)">
+      let html = `<div class="section-header">
+        <span class="section-title">BOX SCORES</span>
+        <span class="section-badge">${lineupGames.length} Games</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <label class="upload-zone" style="flex:1;min-width:140px;margin-bottom:0;">
+          <div class="upload-icon">📄</div>
+          <div class="upload-label">Upload PDF</div>
+          <div class="upload-sub">GameChanger box score PDF<br><span style="color:var(--accent);font-size:0.7rem;">Most accurate</span></div>
+          <input type="file" accept=".pdf,application/pdf" multiple onchange="addNewLineupGame(event,'pdf')">
         </label>
-        <div id="ocrProgress" style="display:none;background:#334155;padding:12px;border-radius:10px;margin-bottom:12px;text-align:center;"></div>`;
+        <label class="upload-zone" style="flex:1;min-width:140px;margin-bottom:0;">
+          <div class="upload-icon">📸</div>
+          <div class="upload-label">Upload Photo</div>
+          <div class="upload-sub">Screenshot or photo<br><span style="color:var(--muted);font-size:0.7rem;">OCR parsing</span></div>
+          <input type="file" accept="image/*" multiple onchange="addNewLineupGame(event,'photo')">
+        </label>
+      </div>
+      <div class="progress-bar-wrap" id="ocrProgress">
+        <div class="progress-label" id="ocrLabel">Processing...</div>
+        <div class="progress-track"><div class="progress-fill" id="ocrFill"></div></div>
+      </div>`;
 
       if (lineupGames.length === 0) {
-        html += `<p style="color:#94a3b8;">No photos yet. You can select multiple photos at once.</p>`;
+        html += `<div class="empty-state"><div class="empty-icon">📋</div><p>No box scores yet.<br>Upload photos to start tracking lineups.</p></div>`;
       } else {
-        html += `<p style="color:#94a3b8;">${lineupGames.length} box score(s) uploaded. <button onclick="clearAllGames()" style="background:#ef4444;width:auto;padding:8px 16px;min-height:unset;font-size:1em;">🗑️ Clear All</button></p>`;
+        html += `<div style="margin-bottom:12px;"><button class="btn btn-danger" onclick="clearAllGames()">🗑 Clear All</button></div>`;
         lineupGames.forEach((game, i) => {
-          html += `
-            <div class="lineup-game">
-              <strong>Box Score ${i + 1}</strong> — ${game.lineup ? game.lineup.length : 0} players parsed
-              <button onclick="deleteLineupGame(${i})" style="background:#ef4444;width:auto;padding:6px 14px;min-height:unset;font-size:0.95em;margin-left:10px;">Delete</button><br>
-              <p style="color:#94a3b8;font-size:0.9em;">${game.lineup && game.lineup.length ? game.lineup.join(", ") : 'No players detected'}</p>
-            </div>`;
+          const srcIcon = game.sourceType === 'pdf' ? '📄' : '📸';
+          const srcLabel = game.sourceType === 'pdf' ? 'PDF' : 'Photo';
+          const fname = game.fileName ? ` · ${game.fileName}` : '';
+          html += `<div class="game-card">
+            <div class="game-card-info">
+              <div class="game-card-title">${srcIcon} ${srcLabel} ${i+1}${fname} &nbsp;·&nbsp; <span style="color:var(--accent)">${game.lineup?game.lineup.length:0} players</span></div>
+              <div class="game-card-players">${game.lineup&&game.lineup.length?game.lineup.join(" · "):"No players detected"}</div>
+            </div>
+            <button class="btn btn-danger" onclick="deleteLineupGame(${i})" style="flex-shrink:0;">✕</button>
+          </div>`;
         });
       }
       container.innerHTML = html;
     }
 
+    let lineupSubTab = 0; // 0=tracker, 1=builder
+    let selectedStrategy = 'modern';
+    let currentBuiltLineup = []; // the live editable lineup
+    let excludedPlayers = new Set(); // players removed from lineup — excluded across all strategies
+    let pickupPlayers = []; // pickup players added — included across all strategies
+    let savedLineups = JSON.parse(localStorage.getItem('AC_SavedLineups') || '[]');
+    let dragSrcIndex = null;
+    let showShareText = false;
+
     function renderLineupTracker() {
       const container = document.getElementById("lineupTrackerContainer");
-      let html = `<h2>Lineup Tracker - ${currentTeam}</h2>`;
-      html += generateLineupSummaryTable();
-      container.innerHTML = html;
+      const subTabHtml = `<div class="section-header"><span class="section-title">LINEUP</span></div>
+        <div class="sub-tabs">
+          <button class="sub-tab ${lineupSubTab===0?'active':''}" onclick="switchLineupSubTab(0)">📊 Tracker</button>
+          <button class="sub-tab ${lineupSubTab===1?'active':''}" onclick="switchLineupSubTab(1)">🧠 Builder</button>
+        </div>`;
+
+      if (lineupSubTab === 0) {
+        container.innerHTML = subTabHtml + generateLineupSummaryTable();
+      } else {
+        container.innerHTML = subTabHtml + generateLineupBuilderHTML();
+      }
+    }
+
+    function switchLineupSubTab(n) {
+      lineupSubTab = n;
+      renderLineupTracker();
     }
 
     function generateLineupSummaryTable() {
       const lineupGames = getLineupGames();
-      if (lineupGames.length === 0) return "<p>No lineup data yet. Upload some box scores first.</p>";
+      if (!lineupGames.length) return `<div class="empty-state"><div class="empty-icon">📋</div><p>No lineup data yet.<br>Upload box score photos first.</p></div>`;
 
       let maxSpot = 0;
-      lineupGames.forEach(game => {
-        if (game.lineup) maxSpot = Math.max(maxSpot, game.lineup.length);
-      });
-
-      let html = `<table><thead><tr><th>Player</th>`;
-      for (let i = 1; i <= maxSpot; i++) html += `<th>Spot ${i}</th>`;
-      html += `</tr></thead><tbody>`;
+      lineupGames.forEach(g => { if (g.lineup) maxSpot = Math.max(maxSpot, g.lineup.length); });
 
       const playerSpotStats = {};
-
       lineupGames.forEach(game => {
         if (!game.lineup) return;
         game.lineup.forEach((player, idx) => {
-          const spot = idx + 1;
-          const statLine = game.stats && game.stats[idx] ? game.stats[idx] : {ab:0, r:0, h:0, rbi:0, bb:0, so:0};
+          const spot = idx+1;
+          const sl = game.stats&&game.stats[idx]?game.stats[idx]:{ab:0,r:0,h:0,rbi:0,bb:0,so:0};
           if (!playerSpotStats[player]) playerSpotStats[player] = {};
-          if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games: 0, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0};
-          const data = playerSpotStats[player][spot];
-          data.games++;
-          data.ab  += statLine.ab  || 0;
-          data.r   += statLine.r   || 0;
-          data.h   += statLine.h   || 0;
-          data.rbi += statLine.rbi || 0;
-          data.bb  += statLine.bb  || 0;
-          data.so  += statLine.so  || 0;
+          if (!playerSpotStats[player][spot]) playerSpotStats[player][spot] = {games:0,ab:0,r:0,h:0,rbi:0,bb:0,so:0};
+          const d = playerSpotStats[player][spot];
+          d.games++; d.ab+=sl.ab||0; d.r+=sl.r||0; d.h+=sl.h||0; d.rbi+=sl.rbi||0; d.bb+=sl.bb||0; d.so+=sl.so||0;
         });
       });
 
-      const sortedPlayers = Object.keys(playerSpotStats).sort((a, b) => {
-        let totalA = 0, totalB = 0;
-        Object.values(playerSpotStats[a]).forEach(s => totalA += s.games);
-        Object.values(playerSpotStats[b]).forEach(s => totalB += s.games);
-        return totalB - totalA;
+      const sortedPlayers = Object.keys(playerSpotStats).sort((a,b)=>{
+        let tA=0,tB=0;
+        Object.values(playerSpotStats[a]).forEach(s=>tA+=s.games);
+        Object.values(playerSpotStats[b]).forEach(s=>tB+=s.games);
+        return tB-tA;
       });
 
+      let html = `<div class="lineup-table-wrap"><table><thead><tr><th style="text-align:left;padding-left:14px;">Player</th>`;
+      for (let i=1; i<=maxSpot; i++) html += `<th>Spot ${i}</th>`;
+      html += `</tr></thead><tbody>`;
+
       sortedPlayers.forEach(player => {
-        html += `<tr><td><strong>${player}</strong></td>`;
-        for (let s = 1; s <= maxSpot; s++) {
-          const data = playerSpotStats[player][s] || {games: 0, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0};
-          const pct = lineupGames.length > 0 ? Math.round((data.games / lineupGames.length) * 100) : 0;
-          const avg = data.ab > 0 ? (data.h / data.ab).toFixed(3) : "—";
-          html += `<td>
-            ${data.games} <small>(${pct}%)</small><br>
-            AVG: ${avg}<br>
-            H: ${Number(data.h)} | R: ${Number(data.r)} | RBI: ${Number(data.rbi)}<br>
-            BB: ${Number(data.bb)} | SO: ${Number(data.so)}
-          </td>`;
+        html += `<tr><td style="text-align:left;padding-left:14px;font-weight:700;">${player}</td>`;
+        for (let s=1; s<=maxSpot; s++) {
+          const d = playerSpotStats[player][s] || {games:0,ab:0,r:0,h:0,rbi:0,bb:0,so:0};
+          const pct = lineupGames.length>0?Math.round((d.games/lineupGames.length)*100):0;
+          const avg = d.ab>0?(d.h/d.ab).toFixed(3):"—";
+          const avgVal = d.ab>0?d.h/d.ab:null;
+          const heatCls = !d.games?'' : avgVal===null?'' : avgVal>=0.3?'heat-hot':avgVal>=0.2?'heat-warm':'heat-cold';
+          const avgColor2 = !avgVal?'color:var(--muted)':avgVal>=0.3?'color:var(--accent)':avgVal>=0.2?'color:var(--warn)':'color:var(--danger)';
+          html += `<td class="${heatCls}">`;
+          if (!d.games) { html += `<span style="color:var(--border)">—</span>`; }
+          else {
+            html += `<div class="lineup-cell">
+              <div class="lc-games">${d.games}g <small style="color:var(--muted)">(${pct}%)</small></div>
+              <div class="lc-avg" style="${avgColor2}">${avg}</div>
+              <div class="lc-stats">H:${Number(d.h)} R:${Number(d.r)} RBI:${Number(d.rbi)}</div>
+              <div class="lc-stats">BB:${Number(d.bb)} K:${Number(d.so)}</div>
+            </div>`;
+          }
+          html += `</td>`;
         }
         html += `</tr>`;
       });
-
-      html += `</tbody></table>`;
+      html += `</tbody></table></div>`;
       return html;
     }
 
+    // ── PDF PARSER (GameChanger box score PDF) ──
+    async function parsePDFFile(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          try {
+            const typedArray = new Uint8Array(ev.target.result);
+            const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
+            let fullText = '';
+            for (let p = 1; p <= pdf.numPages; p++) {
+              const page = await pdf.getPage(p);
+              const content = await page.getTextContent();
+              // Get text items with their x,y positions
+              const items = content.items;
+              // Sort by y position (top to bottom), then x (left to right)
+              items.sort((a, b) => {
+                const yDiff = Math.round(b.transform[5]) - Math.round(a.transform[5]);
+                if (Math.abs(yDiff) > 3) return yDiff;
+                return a.transform[4] - b.transform[4];
+              });
+              // Group items into rows by y position
+              const rows = [];
+              let currentRow = [];
+              let lastY = null;
+              items.forEach(item => {
+                const y = Math.round(item.transform[5]);
+                if (lastY === null || Math.abs(y - lastY) > 3) {
+                  if (currentRow.length) rows.push(currentRow);
+                  currentRow = [item];
+                  lastY = y;
+                } else {
+                  currentRow.push(item);
+                }
+              });
+              if (currentRow.length) rows.push(currentRow);
+              // Convert rows to text lines
+              rows.forEach(row => {
+                                fullText += row.map(i => i.str).join(' ').trim() + '\n';
+              });
+            }
+            const result = parsePDFText(fullText);
+            resolve(result);
+          } catch(e) {
+            console.error("PDF parse error:", e);
+            resolve({ lineup: [], stats: [] });
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function parsePDFText(text) {
+      const lineup = [];
+      const stats = [];
+      const lines = text.split('\n');
+
+      // GameChanger PDF box score format:
+      // Each player row contains: Name #Number (Position) | AB | R | H | RBI | BB | SO ...
+      // We look for lines that have a player name pattern followed by numbers
+      let inLineupSection = false;
+
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+
+        // Detect lineup section headers
+        if (/LINEUP|BATTING|BATTER/i.test(line)) { inLineupSection = true; return; }
+        if (/PITCHING|FIELDING|TOTALS/i.test(line)) { inLineupSection = false; return; }
+
+        // Match player name — First Last pattern
+        const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)|([A-Z] [A-Z][a-z]+\.{0,3})/);
+        if (!nameMatch) return;
+        const name = nameMatch[1].trim();
+        if (name.length < 5) return;
+        if (/TEAM|TOTAL|LINEUP|BATTING|RECAP|VIDEO|PITCHING|FIELDING|GAMECHANGER|EXPORT|SHARE|SCORE/i.test(name)) return;
+
+        // Strip name, jersey, positions to get pure stat numbers
+        let statsPart = line.slice(line.indexOf(nameMatch[0]) + nameMatch[0].length);
+        statsPart = statsPart.replace(/#\d+/g, ' ');
+        statsPart = statsPart.replace(/\([^)]*\)/g, ' ');
+        statsPart = statsPart.replace(/(1B|2B|3B|SS|CF|LF|RF|DH|[PC])/gi, ' ');
+
+        // In PDFs, numbers are cleanly separated — no OCR fusion issues
+        const nums = statsPart.match(/\d+/g) || [];
+
+        if (nums.length >= 6) {
+          lineup.push(name);
+          stats.push({
+            ab:  +nums[0] || 0,
+            r:   +nums[1] || 0,
+            h:   +nums[2] || 0,
+            rbi: +nums[3] || 0,
+            bb:  +nums[4] || 0,
+            so:  +nums[5] || 0
+          });
+        } else if (nums.length >= 3) {
+          lineup.push(name);
+          stats.push({
+            ab:  +nums[0] || 0,
+            r:   +nums[1] || 0,
+            h:   +nums[2] || 0,
+            rbi: +nums[3] || 0,
+            bb:  +nums[4] || 0,
+            so:  +nums[5] || 0
+          });
+        }
+      });
+
+      return { lineup, stats };
+    }
+
+    // ==================== LINEUP BUILDER ====================
+
+    function generateLineupBuilderHTML() {
+      if (!players || players.length === 0) {
+        return `<div class="empty-state"><div class="empty-icon">🧠</div><p>No player data yet.<br>Import a CSV to use the Lineup Builder.</p></div>`;
+      }
+
+      const strategies = [
+        { id:'modern',      icon:'🔬', name:'Modern',         desc:'Sabermetric — OBP leads, best hitter bats 2nd, power in middle' },
+        { id:'traditional', icon:'⚾', name:'Traditional',    desc:'Classic — speed up top, best AVG bats 3rd, cleanup 4th' },
+        { id:'aggressive',  icon:'🔥', name:'Aggressive',     desc:'Youth-optimized — OBP first, minimize Ks, speed in middle' },
+        { id:'rotation',    icon:'🔄', name:'Youth Rotation', desc:'Fair play — rotates each player through all batting spots equally' },
+      ];
+      const stratDesc = {
+        modern:      "Based on Tom Tango's 'The Book' — analytically tested. Best overall hitter bats 2nd for maximum plate appearances.",
+        traditional: "Classic baseball theory — speedster leads off, best hitter bats 3rd, power hitter cleans up.",
+        aggressive:  "Youth-optimized — OBP first, minimize strikeouts. Built for high walk/wild pitch environments.",
+        rotation:    "Based on box score history — each player gets the spot they have had least. Stats ignored.",
+      };
+      const strategyLabels = {
+        modern:      ['Leadoff','Heart of Order','Power','Heart of Order','Power','Contact','Contact','Bottom','Bottom'],
+        traditional: ['Leadoff','Setup','Best Hitter','Cleanup','Power','Contact','Contact','Bottom','Bottom'],
+        aggressive:  ['Leadoff','Leadoff','Contact','Contact','Contact','Speed','Speed','Bottom','Bottom'],
+        rotation:    ['Rotation','Rotation','Rotation','Rotation','Rotation','Rotation','Rotation','Rotation','Rotation'],
+      };
+      const roleCls = {
+        'Leadoff':'role-leadoff','Heart of Order':'role-heart','Best Hitter':'role-heart',
+        'Power':'role-power','Cleanup':'role-power','Contact':'role-contact',
+        'Setup':'role-contact','Speed':'role-contact','Bottom':'role-bottom','Rotation':'role-rotation'
+      };
+
+      // Build strategy cards
+      let html = `<div class="strategy-grid">`;
+      strategies.forEach(s => {
+        html += `<div class="strategy-card ${selectedStrategy===s.id?'selected':''}" onclick="selectStrategy('${s.id}')">
+          <div class="strategy-icon">${s.icon}</div>
+          <div class="strategy-name">${s.name}</div>
+          <div class="strategy-desc">${s.desc}</div>
+        </div>`;
+      });
+      html += `</div><div class="builder-strategy-label">${stratDesc[selectedStrategy]}</div>`;
+
+      // Build lineup — initialize or reset when strategy changes
+      if (currentBuiltLineup.length === 0 || currentBuiltLineup._strategy !== selectedStrategy) {
+        const lineup = buildLineup(selectedStrategy); // already respects excludedPlayers + pickupPlayers
+        if (!lineup || !lineup.length) {
+          return html + `<div class="empty-state"><div class="empty-icon">⚾</div><p>Could not generate lineup.</p></div>`;
+        }
+        currentBuiltLineup = lineup.slice();
+        currentBuiltLineup._strategy = selectedStrategy;
+      }
+
+      // Roster management — bench = players excluded from today's lineup
+      // They can be re-added via the dropdown
+      const inLineupNames = new Set(currentBuiltLineup.map(p => p.name));
+      const benchPlayers = players.filter(p => excludedPlayers.has(p.name) || !inLineupNames.has(p.name));
+
+      // Add player dropdown + pickup player input
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;">ROSTER MANAGEMENT</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">`;
+
+      if (benchPlayers.length > 0) {
+        html += `<select id="addPlayerSelect" style="flex:1;min-width:140px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-family:var(--font-body);font-size:0.85rem;">
+          <option value="">+ Add from roster...</option>`;
+        benchPlayers.forEach(p => {
+          const avg = p.atBats ? (p.hits/p.atBats).toFixed(3) : '.000';
+          html += `<option value="${p.name}">#${p.number} ${p.name} (${avg})</option>`;
+        });
+        html += `</select>
+          <button class="btn btn-primary" onclick="addPlayerToLineup()" style="padding:8px 14px;min-height:unset;font-size:0.85rem;white-space:nowrap;">Add ✓</button>`;
+      }
+
+      html += `<button class="btn btn-secondary" onclick="addPickupPlayer()" style="padding:8px 14px;min-height:unset;font-size:0.85rem;white-space:nowrap;">+ Pickup Player</button>
+        </div>
+      </div>`;
+
+      if (players.length < 9) {
+
+      }
+
+      html += `<div class="lineup-builder-result">
+        <div class="builder-header">
+          <span class="builder-header-title">SUGGESTED LINEUP</span>
+          <span style="font-size:0.75rem;color:var(--muted)">${currentTeam} · ${currentView}</span>
+        </div>`;
+
+      currentBuiltLineup.forEach((p, i) => {
+        const avg = p.atBats ? (p.hits/p.atBats).toFixed(3) : '.000';
+        const obp = (p.atBats+p.walks) ? ((p.hits+p.walks)/(p.atBats+p.walks)).toFixed(3) : '.000';
+        const singles = Math.max(0, p.hits - (p.homeRuns||0));
+        const slg = p.atBats ? ((singles + 4*(p.homeRuns||0))/p.atBats).toFixed(3) : '.000';
+        const ops = (parseFloat(obp)+parseFloat(slg)).toFixed(3);
+        const role = (strategyLabels[selectedStrategy] && strategyLabels[selectedStrategy][i]) || 'Bottom';
+        const cls = roleCls[role] || 'role-bottom';
+        const initials = getInitials(p.name);
+        const reason = p.isPickup
+          ? '⭐ Pickup player — not in season stats'
+          : getSpotReason(selectedStrategy, i, p);
+        const avgCls = parseFloat(avg)>=0.3?'avg-good':parseFloat(avg)>=0.2?'avg-ok':'avg-low';
+        html += `<div class="lineup-spot-row" draggable="true"
+          ondragstart="onDragStart(event,${i})"
+          ondragover="onDragOver(event,${i})"
+          ondragleave="onDragLeave(event)"
+          ondrop="onDrop(event,${i})"
+          ondragend="onDragEnd(event)">
+          <div class="drag-handle">⠿</div>
+          <div class="spot-number">${i+1}</div>
+          <div class="spot-avatar"><div class="si">${initials}</div><div class="sn">#${p.number}</div></div>
+          <div class="spot-info">
+            <div class="spot-name">${p.name}</div>
+            <div class="spot-reason">${reason}</div>
+          </div>
+          <div class="spot-stats">
+            <div class="spot-stat"><div class="sv ${avgCls}">${avg}</div><div class="sl">AVG</div></div>
+            <div class="spot-stat"><div class="sv">${obp}</div><div class="sl">OBP</div></div>
+            <div class="spot-stat"><div class="sv">${ops}</div><div class="sl">OPS</div></div>
+          </div>
+          <span class="spot-role-badge ${cls}">${role}</span>
+          <button onclick="removePlayerFromLineup(${i})" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px;min-height:unset;width:auto;border-radius:6px;transition:color 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+        </div>`;
+      });
+
+      html += `</div>
+        <div class="lineup-action-bar">
+          <button class="btn btn-primary" onclick="saveCurrentLineup()" style="flex:1;">💾 Save</button>
+          <button class="btn btn-secondary" onclick="toggleShareText()" style="flex:1;">📤 Share</button>
+          <button class="btn btn-secondary" onclick="resetLineup()" style="flex:1;" title="Re-sort current players using selected strategy">↺ Re-sort</button>
+        </div>`;
+
+      if (showShareText) {
+        html += `<div class="share-text-box">${generateShareText()}</div>
+          <button class="btn btn-secondary btn-full" onclick="copyShareText()" style="margin-top:8px;">📋 Copy to Clipboard</button>`;
+      }
+
+      if (savedLineups.length > 0) {
+        html += `<div class="saved-lineups-section">
+          <div class="section-header" style="margin-top:16px;">
+            <span class="section-title" style="font-size:1.1rem;">SAVED LINEUPS</span>
+            <span class="section-badge">${savedLineups.length}</span>
+          </div>`;
+        savedLineups.slice().reverse().forEach((sl, ri) => {
+          const idx = savedLineups.length - 1 - ri;
+          html += `<div class="saved-lineup-card">
+            <div class="saved-lineup-info">
+              <div class="saved-lineup-name">${sl.name}</div>
+              <div class="saved-lineup-meta">${sl.strategy} · ${sl.team} · ${sl.date} · ${sl.lineup.length} players</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-secondary" onclick="loadSavedLineup(${idx})" style="padding:8px 12px;min-height:unset;font-size:0.8rem;">Load</button>
+              <button class="btn btn-danger" onclick="deleteSavedLineup(${idx})" style="padding:8px 12px;min-height:unset;font-size:0.8rem;">✕</button>
+            </div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      return html;
+    }
+
+    function resetLineup() {
+      // Re-run strategy using active roster (respects all removes and pickups)
+      currentBuiltLineup = [];
+      renderLineupTracker();
+    }
+
+    function removePlayerFromLineup(i) {
+      const removed = currentBuiltLineup[i];
+      if (removed) {
+        if (removed.isPickup) {
+          // Remove pickup players from pickupPlayers list too
+          pickupPlayers = pickupPlayers.filter(p => p.name !== removed.name);
+        } else {
+          // Add to excluded set so all strategies skip this player
+          excludedPlayers.add(removed.name);
+        }
+      }
+      // Clear currentBuiltLineup so next render re-builds with updated exclusions
+      currentBuiltLineup = [];
+      renderLineupTracker();
+    }
+
+    function addPlayerToLineup() {
+      const sel = document.getElementById('addPlayerSelect');
+      if (!sel || !sel.value) return;
+      const player = players.find(p => p.name === sel.value);
+      if (!player) return;
+      // Remove from excluded set so they appear in all strategies again
+      excludedPlayers.delete(player.name);
+      currentBuiltLineup = []; // force rebuild with updated exclusions
+      renderLineupTracker();
+    }
+
+    function addPickupPlayer() {
+      const name = prompt('Pickup player name:', '');
+      if (!name || !name.trim()) return;
+      const number = prompt('Jersey number:', '00');
+      const pickup = {
+        name: name.trim(),
+        number: number || '00',
+        atBats: 0, hits: 0, walks: 0, homeRuns: 0,
+        rbis: 0, strikeouts: 0, gp: 0,
+        isPickup: true
+      };
+      // Persist pickup so they appear across all strategy switches
+      pickupPlayers.push(pickup);
+      currentBuiltLineup = []; // force rebuild
+      renderLineupTracker();
+    }
+
+        function selectStrategy(id) {
+      selectedStrategy = id;
+      renderLineupTracker();
+    }
+
+    function getSpotReason(strategy, spot, p) {
+      const avg  = p.atBats ? (p.hits/p.atBats).toFixed(3) : '.000';
+      const obp  = (p.atBats+p.walks) ? ((p.hits+p.walks)/(p.atBats+p.walks)).toFixed(3) : '.000';
+      const singles = Math.max(0, p.hits - p.homeRuns);
+      const slg  = p.atBats ? ((singles+4*(p.homeRuns||0))/p.atBats).toFixed(3) : '.000';
+      const ops  = (parseFloat(obp)+parseFloat(slg)).toFixed(3);
+      const kPct = p.atBats ? ((p.strikeouts/p.atBats)*100).toFixed(0)+'%' : '—';
+
+      if (strategy === 'rotation') {
+        const games = getLineupGames();
+        const spotCounts = getPlayerSpotHistory(p.name, games);
+        const timesHere  = spotCounts[spot+1] || 0;
+        return `Batted in spot ${spot+1} only ${timesHere}x — least used spot for this player`;
+      }
+      const reasons = {
+        modern: [
+          `Highest OBP (${obp}) — most plate appearances as leadoff`,
+          `Highest OPS (${ops}) — best overall hitter gets most PAs`,
+          `High SLG (${slg}) — drives in the top two runners`,
+          `2nd highest OPS (${ops}) — heart of the order`,
+          `High SLG (${slg}) — extra base threat after #4`,
+          `AVG ${avg} · K% ${kPct} — solid contact hitter`,
+          `AVG ${avg} — keeps the lineup moving`,
+          `AVG ${avg} — building towards top of order`,
+          `AVG ${avg} — turns lineup over to leadoff`,
+        ],
+        traditional: [
+          `Low K% (${kPct}) — contact hitter to get things started`,
+          `Good contact, sets table for #3`,
+          `Best AVG (${avg}) — your best pure hitter`,
+          `Most power — HR:${p.homeRuns||0} RBI:${p.rbis||0} — cleanup role`,
+          `2nd power threat — SLG ${slg}`,
+          `AVG ${avg} — solid middle of lineup`,
+          `AVG ${avg} — consistent contact`,
+          `AVG ${avg} — developing hitter`,
+          `AVG ${avg} — turns order over`,
+        ],
+        aggressive: [
+          `Highest OBP (${obp}) — must get on base`,
+          `OBP ${obp} — 1-2 punch to start every inning`,
+          `Low K% (${kPct}), AVG ${avg} — keeps ball in play`,
+          `AVG ${avg}, K% ${kPct} — contact in run-scoring spot`,
+          `AVG ${avg} — drives in early baserunners`,
+          `AVG ${avg} — speed and contact in mid-order`,
+          `AVG ${avg} — keeps pressure on defense`,
+          `AVG ${avg} — building hitter`,
+          `AVG ${avg} — turns order to top`,
+        ],
+      };
+      return (reasons[strategy] && reasons[strategy][spot]) || `AVG ${avg} · OBP ${obp}`;
+    }
+
+    function getPlayerSpotHistory(playerName, games) {
+      // Returns {spotNumber: count} for how many times player batted in each spot
+      const counts = {};
+      games.forEach(game => {
+        if (!game.lineup) return;
+        game.lineup.forEach((name, idx) => {
+          // Match by initial+last or full name
+          const gameFirst = name.split(' ')[0];
+          const gameLast  = name.split(' ').slice(1).join(' ');
+          const pFirst    = playerName.split(' ')[0];
+          const pLast     = playerName.split(' ').slice(1).join(' ');
+          const match = name === playerName ||
+            (gameFirst.length === 1 && gameLast === pLast) ||
+            (pFirst.length === 1 && pFirst[0] === (playerName.split(' ')[0]||'')[0] && gameLast === pLast);
+          if (match) {
+            const spot = idx + 1;
+            counts[spot] = (counts[spot] || 0) + 1;
+          }
+        });
+      });
+      return counts;
+    }
+
+    function buildLineup(strategy) {
+      // Filter out excluded players, then append pickup players at the end
+      const activeRoster = players.filter(p => !excludedPlayers.has(p.name));
+      const pool = [...activeRoster, ...pickupPlayers];
+      return buildLineupFromPool(strategy, pool);
+    }
+
+    function buildLineupFromPool(strategy, pool) {
+      if (!pool || !pool.length) return [];
+      const lineup = [];
+
+      if (strategy === 'rotation') {
+        return buildRotationLineup([...pool]);
+      }
+
+      // Compute stats for sorting
+      const withStats = pool.map(p => {
+        const ab    = p.atBats || 0;
+        const obp   = (ab+p.walks) ? (p.hits+p.walks)/(ab+p.walks) : 0;
+        const singles = Math.max(0, p.hits - p.homeRuns);
+        const slg   = ab ? (singles + 4*(p.homeRuns||0))/ab : 0;
+        const ops   = obp + slg;
+        const avg   = ab ? p.hits/ab : 0;
+        const kPct  = ab ? p.strikeouts/ab : 1;
+        const hr    = p.homeRuns || 0;
+        const rbi   = p.rbis || 0;
+        return { ...p, _obp:obp, _slg:slg, _ops:ops, _avg:avg, _kPct:kPct, _hr:hr, _rbi:rbi };
+      });
+
+      if (strategy === 'modern') {
+        // Spot 2: highest OPS
+        const spot2 = [...withStats].sort((a,b)=>b._ops-a._ops)[0];
+        // Spot 1: highest OBP (excluding spot2)
+        const spot1 = [...withStats].filter(p=>p.name!==spot2.name).sort((a,b)=>b._obp-a._obp)[0];
+        // Spot 4: 2nd highest OPS
+        const spot4 = [...withStats].filter(p=>p.name!==spot2.name&&p.name!==spot1.name).sort((a,b)=>b._ops-a._ops)[0];
+        // Spot 5: highest SLG remaining
+        const spot5 = [...withStats].filter(p=>![spot1,spot2,spot4].map(x=>x.name).includes(p.name)).sort((a,b)=>b._slg-a._slg)[0];
+        // Spot 3: 2nd highest SLG remaining
+        const spot3 = [...withStats].filter(p=>![spot1,spot2,spot4,spot5].map(x=>x.name).includes(p.name)).sort((a,b)=>b._slg-a._slg)[0];
+        // Spots 6-9: remaining by descending OPS
+        const used = [spot1,spot2,spot3,spot4,spot5].map(p=>p.name);
+        const rest = [...withStats].filter(p=>!used.includes(p.name)).sort((a,b)=>b._ops-a._ops);
+        return [spot1,spot2,spot3,spot4,spot5,...rest].filter(Boolean);
+      }
+
+      if (strategy === 'traditional') {
+        // Spot 1: lowest K% (best contact + speed proxy)
+        const spot1 = [...withStats].sort((a,b)=>a._kPct-b._kPct)[0];
+        // Spot 3: best AVG
+        const spot3 = [...withStats].filter(p=>p.name!==spot1.name).sort((a,b)=>b._avg-a._avg)[0];
+        // Spot 4: most HR+RBI (cleanup)
+        const spot4 = [...withStats].filter(p=>![spot1,spot3].map(x=>x.name).includes(p.name)).sort((a,b)=>(b._hr+b._rbi)-(a._hr+a._rbi))[0];
+        // Spot 2: highest OBP remaining
+        const spot2 = [...withStats].filter(p=>![spot1,spot3,spot4].map(x=>x.name).includes(p.name)).sort((a,b)=>b._obp-a._obp)[0];
+        // Spot 5: 2nd best SLG remaining
+        const spot5 = [...withStats].filter(p=>![spot1,spot2,spot3,spot4].map(x=>x.name).includes(p.name)).sort((a,b)=>b._slg-a._slg)[0];
+        // Spots 6-9: descending AVG
+        const used = [spot1,spot2,spot3,spot4,spot5].map(p=>p.name);
+        const rest = [...withStats].filter(p=>!used.includes(p.name)).sort((a,b)=>b._avg-a._avg);
+        return [spot1,spot2,spot3,spot4,spot5,...rest].filter(Boolean);
+      }
+
+      if (strategy === 'aggressive') {
+        // Spots 1-2: highest OBP
+        const byOBP = [...withStats].sort((a,b)=>b._obp-a._obp);
+        const spot1 = byOBP[0];
+        const spot2 = byOBP[1];
+        // Spots 3-5: lowest K% (most contact) from remaining
+        const used12 = [spot1.name, spot2.name];
+        const byKPct = [...withStats].filter(p=>!used12.includes(p.name)).sort((a,b)=>a._kPct-b._kPct);
+        const spot3 = byKPct[0], spot4 = byKPct[1], spot5 = byKPct[2];
+        // Spots 6-7: next best OBP (speed proxied by OBP in youth)
+        const used345 = [spot3,spot4,spot5].map(p=>p.name);
+        const rest1 = [...withStats].filter(p=>![...used12,...used345].includes(p.name)).sort((a,b)=>b._obp-a._obp);
+        const spot6 = rest1[0], spot7 = rest1[1];
+        // Spots 8-9: remaining by AVG
+        const usedAll = [spot1,spot2,spot3,spot4,spot5,spot6,spot7].filter(Boolean).map(p=>p.name);
+        const rest2 = [...withStats].filter(p=>!usedAll.includes(p.name)).sort((a,b)=>b._avg-a._avg);
+        return [spot1,spot2,spot3,spot4,spot5,spot6,spot7,...rest2].filter(Boolean);
+      }
+
+      return withStats.sort((a,b)=>b._ops-a._ops);
+    }
+
+    function buildRotationLineup(pool) {
+      const games = getLineupGames();
+      // For each player, count how many times they've batted in each spot
+      const playerHistory = {};
+      pool.forEach(p => {
+        playerHistory[p.name] = getPlayerSpotHistory(p.name, games);
+      });
+
+      // Assign players to spots greedily:
+      // For each spot 1-9, find the unassigned player who has batted there the LEAST
+      const assigned = [];
+      const usedPlayers = new Set();
+      const numSpots = pool.length; // no cap — youth baseball can have 10, 11, 12+ hitters
+
+      for (let spot = 1; spot <= numSpots; spot++) {
+        let bestPlayer = null;
+        let bestCount = Infinity;
+        pool.forEach(p => {
+          if (usedPlayers.has(p.name)) return;
+          const count = playerHistory[p.name][spot] || 0;
+          if (count < bestCount) { bestCount = count; bestPlayer = p; }
+          // Tiebreak: alphabetical for consistency
+          else if (count === bestCount && bestPlayer && p.name < bestPlayer.name) { bestPlayer = p; }
+        });
+        if (bestPlayer) { assigned.push(bestPlayer); usedPlayers.add(bestPlayer.name); }
+      }
+      return assigned;
+    }
+
+    // ── DRAG AND DROP ──
+    function onDragStart(event, index) {
+      dragSrcIndex = index;
+      event.currentTarget.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+    }
+
+    function onDragOver(event, index) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      // Highlight the row being dragged over
+      document.querySelectorAll('.lineup-spot-row').forEach((row, i) => {
+        row.classList.toggle('drag-over', i === index && i !== dragSrcIndex);
+      });
+    }
+
+    function onDragLeave(event) {
+      event.currentTarget.classList.remove('drag-over');
+    }
+
+    function onDrop(event, dropIndex) {
+      event.preventDefault();
+      if (dragSrcIndex === null || dragSrcIndex === dropIndex) return;
+      // Reorder currentBuiltLineup
+      const moved = currentBuiltLineup.splice(dragSrcIndex, 1)[0];
+      currentBuiltLineup.splice(dropIndex, 0, moved);
+      dragSrcIndex = null;
+      renderLineupTracker();
+    }
+
+    function onDragEnd(event) {
+      event.currentTarget.classList.remove('dragging');
+      document.querySelectorAll('.lineup-spot-row').forEach(row => row.classList.remove('drag-over'));
+      dragSrcIndex = null;
+    }
+
+
+
+
+
+    // ── SAVE / SHARE ──
+    function saveCurrentLineup() {
+      if (!currentBuiltLineup.length) return alert('No lineup to save');
+      const name = prompt('Name this lineup:', `${currentTeam} - ${new Date().toLocaleDateString()}`);
+      if (!name) return;
+      const entry = {
+        name,
+        strategy: selectedStrategy,
+        team: currentTeam,
+        season: currentView,
+        date: new Date().toLocaleDateString(),
+        lineup: currentBuiltLineup.map(p => ({ name: p.name, number: p.number }))
+      };
+      savedLineups.push(entry);
+      localStorage.setItem('AC_SavedLineups', JSON.stringify(savedLineups));
+      renderLineupTracker();
+      alert('✅ Lineup saved!');
+    }
+
+    function deleteSavedLineup(i) {
+      if (!confirm('Delete this saved lineup?')) return;
+      savedLineups.splice(i, 1);
+      localStorage.setItem('AC_SavedLineups', JSON.stringify(savedLineups));
+      renderLineupTracker();
+    }
+
+    function loadSavedLineup(i) {
+      const sl = savedLineups[i];
+      if (!sl) return;
+      // Match saved names back to full player objects
+      const loaded = sl.lineup.map(saved => {
+        return players.find(p => p.name === saved.name || p.number === saved.number) ||
+               { name: saved.name, number: saved.number, atBats:0, hits:0, walks:0, homeRuns:0, rbis:0, strikeouts:0 };
+      });
+      currentBuiltLineup = loaded;
+      selectedStrategy = sl.strategy || selectedStrategy;
+      renderLineupTracker();
+    }
+
+    function toggleShareText() {
+      showShareText = !showShareText;
+      renderLineupTracker();
+    }
+
+    function generateShareText() {
+      const stratNames = { modern:'Modern', traditional:'Traditional', aggressive:'Aggressive', rotation:'Youth Rotation' };
+      let text = `⚾ ${currentTeam} LINEUP\n`;
+      text += `Strategy: ${stratNames[selectedStrategy] || selectedStrategy}\n`;
+      text += `${new Date().toLocaleDateString()}\n\n`;
+      currentBuiltLineup.forEach((p, i) => {
+        const avg = p.atBats ? (p.hits/p.atBats).toFixed(3) : '.000';
+        text += `${i+1}. #${p.number} ${p.name}  AVG: ${avg}\n`;
+      });
+      text += `\nBuilt with Assistant Coach`;
+      return text;
+    }
+
+    function copyShareText() {
+      const text = generateShareText();
+      navigator.clipboard.writeText(text).then(() => alert('✅ Lineup copied to clipboard!'));
+    }
+
     function parseLineFromOCR(line) {
-      const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)/);
+      // Match EITHER full "First Last" OR abbreviated "F Last" / "F Last..." (GameChanger web format)
+      const nameMatch = line.match(/([A-Z][a-z]+ [A-Z][a-z]+)|([A-Z] [A-Z][a-z]+\.{0,3})/);
       if (!nameMatch) return null;
-      const name = nameMatch[1].trim();
-      if (name.length < 6 || name.includes("TEAM") || name.includes("LINEUP") || name.includes("RA BLK")) return null;
+      let name = (nameMatch[1] || nameMatch[2]).trim();
+      // Clean trailing dots from truncated names like "T Gunde..."
+      name = name.replace(/\.+$/, '').trim();
+      if (name.length < 3) return null;
+      if (/^(TEAM|LINEUP|RECAP|VIDEO|GAMECHANGER|EXPORT|SHARE|PITCHING|FIELDING|TOTALS|RA BLK)/i.test(name)) return null;
 
       let statsPart = line.slice(line.indexOf(nameMatch[0]) + nameMatch[0].length);
       statsPart = statsPart.replace(/#\d+/g, '');
       statsPart = statsPart.replace(/\([^)]*\)/g, '');
+      statsPart = statsPart.replace(/\.+/g, ' ');
       statsPart = statsPart.replace(/\b(1B|2B|3B|SS|CF|LF|RF|DH|[PC])\b/gi, '');
       let statNums = statsPart.match(/\b\d+\b/g) || [];
       if (statNums.length > 0 && /^\d{2}$/.test(statNums[0])) {
         statNums = [statNums[0][0], statNums[0][1], ...statNums.slice(1)];
       }
       const s = statNums;
-      const stat = (s.length >= 3)
-        ? { ab: +s[0]||0, r: +s[1]||0, h: +s[2]||0, rbi: +s[3]||0, bb: +s[4]||0, so: +s[5]||0 }
-        : { ab:0, r:0, h:0, rbi:0, bb:0, so:0 };
+      const stat = s.length>=3 ? {ab:+s[0]||0,r:+s[1]||0,h:+s[2]||0,rbi:+s[3]||0,bb:+s[4]||0,so:+s[5]||0} : {ab:0,r:0,h:0,rbi:0,bb:0,so:0};
       return { name, stat };
     }
 
@@ -806,68 +2403,70 @@
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = async (ev) => {
-          const photoData = ev.target.result;
           try {
             const worker = await Tesseract.createWorker('eng');
-            const result = await worker.recognize(photoData);
+            const result = await worker.recognize(ev.target.result);
             await worker.terminate();
-            const text = result.data.text.trim();
-            const lineup = [], stats = [];
-            text.split('\n').forEach(line => {
+            const lineup=[], stats=[];
+            result.data.text.trim().split('\n').forEach(line => {
               const parsed = parseLineFromOCR(line);
               if (parsed) { lineup.push(parsed.name); stats.push(parsed.stat); }
             });
             resolve({ lineup, stats });
-          } catch(err) {
-            resolve({ lineup: [], stats: [] });
-          }
+          } catch(e) { resolve({ lineup:[], stats:[] }); }
         };
         reader.readAsDataURL(file);
       });
     }
 
-    async function addNewLineupGame(event) {
+    async function addNewLineupGame(event, fileType) {
       if (!currentTeam) return alert("Select a team first");
       const files = Array.from(event.target.files);
       if (!files.length) return;
-
       if (!allLineupGames[currentTeam]) allLineupGames[currentTeam] = [];
 
-      const progress = document.getElementById("ocrProgress");
-      progress.style.display = "block";
+      const progressWrap = document.getElementById("ocrProgress");
+      const progressLabel = document.getElementById("ocrLabel");
+      const progressFill = document.getElementById("ocrFill");
+      progressWrap.style.display = "block";
 
-      for (let i = 0; i < files.length; i++) {
-        progress.textContent = `Processing photo ${i + 1} of ${files.length}...`;
-        const gameData = await processPhotoFile(files[i]);
+      const isPDF = fileType === 'pdf';
+      const typeLabel = isPDF ? 'PDF' : 'photo';
+
+      for (let i=0; i<files.length; i++) {
+        progressLabel.textContent = `Processing ${typeLabel} ${i+1} of ${files.length}...`;
+        progressFill.style.width = Math.round((i/files.length)*100) + "%";
+
+        const gameData = isPDF
+          ? await parsePDFFile(files[i])
+          : await processPhotoFile(files[i]);
+
+        // Tag the source type so we can display it
+        gameData.sourceType = isPDF ? 'pdf' : 'photo';
+        gameData.fileName = files[i].name;
+
         allLineupGames[currentTeam].push(gameData);
         saveData();
-        renderBoxScores();      // re-render after each so progress div stays visible
+        renderBoxScores();
         renderLineupTracker();
-        // Re-grab progress element since renderBoxScores rebuilds the DOM
-        const prog = document.getElementById("ocrProgress");
-        if (prog) { prog.style.display = "block"; prog.textContent = `Processing photo ${i + 1} of ${files.length}...`; }
+
+        const pw=document.getElementById("ocrProgress"), pl=document.getElementById("ocrLabel"), pf=document.getElementById("ocrFill");
+        if (pw) { pw.style.display="block"; pl.textContent=`Processing ${typeLabel} ${i+1} of ${files.length}...`; pf.style.width=Math.round(((i+1)/files.length)*100)+"%"; }
       }
 
-      const prog = document.getElementById("ocrProgress");
-      if (prog) { prog.textContent = `✅ Done! ${files.length} photo(s) processed.`; setTimeout(() => { if (prog) prog.style.display = "none"; }, 3000); }
-      renderBoxScores();
-      renderLineupTracker();
+      const pw=document.getElementById("ocrProgress"), pl=document.getElementById("ocrLabel"), pf=document.getElementById("ocrFill");
+      if (pw) { pl.textContent=`✅ Done! ${files.length} ${typeLabel}(s) processed.`; pf.style.width="100%"; setTimeout(()=>{ if(pw) pw.style.display="none"; },3000); }
+      renderBoxScores(); renderLineupTracker();
     }
 
     function clearAllGames() {
       if (!currentTeam || !confirm("Clear all box scores for this team?")) return;
-      allLineupGames[currentTeam] = [];
-      saveData();
-      renderBoxScores();
-      renderLineupTracker();
+      allLineupGames[currentTeam] = []; saveData(); renderBoxScores(); renderLineupTracker();
     }
 
     function deleteLineupGame(i) {
-      if (confirm("Delete this game?")) {
-        getLineupGames().splice(i, 1);
-        saveData();
-        renderBoxScores();
-        renderLineupTracker();
+      if (confirm("Delete this box score?")) {
+        getLineupGames().splice(i,1); saveData(); renderBoxScores(); renderLineupTracker();
       }
     }
   </script>
