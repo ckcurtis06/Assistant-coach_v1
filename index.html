@@ -1069,6 +1069,7 @@
     <div id="teamTableContainer" style="display:none;"></div>
     <div id="boxScoresContainer" style="display:none;"></div>
     <div id="lineupTrackerContainer" style="display:none;"></div>
+    <div id="defenseContainer" style="display:none;"></div>
   </main>
 
   <!-- BOTTOM NAV -->
@@ -1088,6 +1089,10 @@
     <button class="nav-item" id="nav3" onclick="switchTab(3)">
       <span class="nav-icon">📋</span>
       <span class="nav-label">Lineup</span>
+    </button>
+    <button class="nav-item" id="nav4" onclick="switchTab(4)">
+      <span class="nav-icon">🛡️</span>
+      <span class="nav-label">Defense</span>
     </button>
   </nav>
 
@@ -1401,6 +1406,10 @@
       currentBuiltLineup = [];
       excludedPlayers = new Set();
       pickupPlayers = [];
+      // Clear defense state too
+      currentDefAssignment = {};
+      defExcludedPlayers = new Set();
+      defPickupPlayers = [];
       renderHero();
       renderRoster();
       renderTeamTable();
@@ -1547,14 +1556,16 @@
     }
 
     function switchTab(n) {
-      for (let i=0; i<4; i++) document.getElementById("nav"+i).classList.toggle("active", i===n);
-      document.getElementById("playerList").style.display          = n===0 ? "block" : "none";
-      document.getElementById("teamTableContainer").style.display  = n===1 ? "block" : "none";
-      document.getElementById("boxScoresContainer").style.display  = n===2 ? "block" : "none";
+      for (let i=0; i<5; i++) { const el = document.getElementById("nav"+i); if(el) el.classList.toggle("active", i===n); }
+      document.getElementById("playerList").style.display             = n===0 ? "block" : "none";
+      document.getElementById("teamTableContainer").style.display     = n===1 ? "block" : "none";
+      document.getElementById("boxScoresContainer").style.display     = n===2 ? "block" : "none";
       document.getElementById("lineupTrackerContainer").style.display = n===3 ? "block" : "none";
+      document.getElementById("defenseContainer").style.display       = n===4 ? "block" : "none";
       if (n===1) renderTeamTable();
       if (n===2) renderBoxScores();
       if (n===3) renderLineupTracker();
+      if (n===4) renderDefense();
     }
 
     function sortTable(colIndex) {
@@ -1680,6 +1691,12 @@
     let savedLineups = JSON.parse(localStorage.getItem('AC_SavedLineups') || '[]');
     let dragSrcIndex = null;
     let showShareText = false;
+
+    // ── DEFENSE STATE ──
+    let selectedDefStrategy = 'bestfit';
+    let currentDefAssignment = {}; // { position: playerObject }
+    let defExcludedPlayers = new Set();
+    let defPickupPlayers = [];
 
     function renderLineupTracker() {
       const container = document.getElementById("lineupTrackerContainer");
@@ -2280,6 +2297,397 @@
         if (bestPlayer) { assigned.push(bestPlayer); usedPlayers.add(bestPlayer.name); }
       }
       return assigned;
+    }
+
+    // ==================== DEFENSE BUILDER ====================
+
+    const DEF_POSITIONS = ['P','C','1B','2B','3B','SS','LF','CF','RF'];
+    const DEF_POSITION_KEYS = {
+      'P':'posP','C':'posC','1B':'pos1B','2B':'pos2B',
+      '3B':'pos3B','SS':'posSS','LF':'posLF','CF':'posCF','RF':'posRF'
+    };
+    const DEF_POSITION_LABELS = {
+      'P':'Pitcher','C':'Catcher','1B':'First Base','2B':'Second Base',
+      '3B':'Third Base','SS':'Shortstop','LF':'Left Field','CF':'Center Field','RF':'Right Field'
+    };
+    const DEF_POSITION_ICONS = {
+      'P':'⚾','C':'🎯','1B':'1️⃣','2B':'2️⃣','3B':'3️⃣','SS':'⭐','LF':'👈','CF':'🔭','RF':'👉'
+    };
+
+    function getPlayerPosScore(p, pos) {
+      const key = DEF_POSITION_KEYS[pos];
+      return p[key] || 0;
+    }
+
+    function getPlayerPosPct(p, pos) {
+      const total = DEF_POSITIONS.reduce((sum, pos2) => sum + (p[DEF_POSITION_KEYS[pos2]]||0), 0);
+      if (!total) return 0;
+      return (p[DEF_POSITION_KEYS[pos]]||0) / total;
+    }
+
+    function buildDefenseAssignment(strategy, pool) {
+      if (!pool || !pool.length) return {};
+      const assignment = {}; // { position: player }
+      const usedPlayers = new Set();
+
+      if (strategy === 'bestfit') {
+        // Each position goes to whoever has played it the most innings
+        // Use greedy: fill hardest/most important positions first
+        const priorityOrder = ['P','C','SS','2B','3B','1B','CF','LF','RF'];
+        priorityOrder.forEach(pos => {
+          const best = pool
+            .filter(p => !usedPlayers.has(p.name))
+            .sort((a,b) => getPlayerPosScore(b,pos) - getPlayerPosScore(a,pos))[0];
+          if (best) { assignment[pos] = best; usedPlayers.add(best.name); }
+        });
+      }
+
+      else if (strategy === 'traditional') {
+        // Traditional coaching priority: fill key positions first
+        // P: best pitcher, C: most catching exp, SS: most SS exp, then fill remaining
+        const priorityOrder = ['C','P','SS','2B','3B','1B','CF','LF','RF'];
+        priorityOrder.forEach(pos => {
+          const best = pool
+            .filter(p => !usedPlayers.has(p.name))
+            .sort((a,b) => getPlayerPosScore(b,pos) - getPlayerPosScore(a,pos))[0];
+          if (best) { assignment[pos] = best; usedPlayers.add(best.name); }
+        });
+      }
+
+      else if (strategy === 'development') {
+        // Put players in positions they have SOME experience but not their primary
+        // For each position, find player whose 2nd-most-played position matches
+        const priorityOrder = ['P','C','SS','2B','3B','1B','CF','LF','RF'];
+        priorityOrder.forEach(pos => {
+          const sorted = pool
+            .filter(p => !usedPlayers.has(p.name))
+            .sort((a, b) => {
+              // Sort by pos score descending but penalize if this is their #1 position
+              const aScore = getPlayerPosScore(a, pos);
+              const bScore = getPlayerPosScore(b, pos);
+              const aIsPrimary = DEF_POSITIONS.every(p2 => p2===pos || getPlayerPosScore(a,pos) >= getPlayerPosScore(a,p2));
+              const bIsPrimary = DEF_POSITIONS.every(p2 => p2===pos || getPlayerPosScore(b,pos) >= getPlayerPosScore(b,p2));
+              // Prefer non-primary but still experienced
+              if (aIsPrimary && !bIsPrimary && bScore > 0) return 1;
+              if (!aIsPrimary && bIsPrimary && aScore > 0) return -1;
+              return bScore - aScore;
+            });
+          const best = sorted[0];
+          if (best) { assignment[pos] = best; usedPlayers.add(best.name); }
+        });
+      }
+
+      else if (strategy === 'rotation') {
+        // Based on box score history — assign player to position they've played least
+        // Since we don't have per-game defensive tracking in box scores,
+        // we use the DEF_* innings from CSV as proxy — assign to spots with lowest %
+        const priorityOrder = ['P','C','SS','2B','3B','1B','CF','LF','RF'];
+        priorityOrder.forEach(pos => {
+          const best = pool
+            .filter(p => !usedPlayers.has(p.name))
+            .sort((a,b) => getPlayerPosPct(a,pos) - getPlayerPosPct(b,pos))[0];
+          if (best) { assignment[pos] = best; usedPlayers.add(best.name); }
+        });
+      }
+
+      // Fill any remaining positions with unassigned players
+      DEF_POSITIONS.forEach(pos => {
+        if (!assignment[pos]) {
+          const remaining = pool.filter(p => !usedPlayers.has(p.name));
+          if (remaining.length) { assignment[pos] = remaining[0]; usedPlayers.add(remaining[0].name); }
+        }
+      });
+
+      return assignment;
+    }
+
+    function getDefReason(strategy, pos, p) {
+      const pct = (getPlayerPosPct(p, pos) * 100).toFixed(0);
+      const innings = getPlayerPosScore(p, pos).toFixed(1);
+      if (p.isPickup) return '⭐ Pickup player';
+      if (strategy === 'bestfit')
+        return `${innings} innings at ${pos} (${pct}% of defensive time) — most experienced`;
+      if (strategy === 'traditional')
+        return `${innings} innings at ${pos} — traditional priority fill`;
+      if (strategy === 'development')
+        return `${innings} innings at ${pos} — developing at secondary position`;
+      if (strategy === 'rotation')
+        return `${pct}% at ${pos} — least used position for this player`;
+      return `${innings} innings at ${pos}`;
+    }
+
+    function renderDefense() {
+      const container = document.getElementById("defenseContainer");
+      if (!players || !players.length) {
+        container.innerHTML = `<div class="content"><div class="empty-state"><div class="empty-icon">🛡️</div><p>No player data yet.<br>Import a CSV to use the Defense Builder.</p></div></div>`;
+        return;
+      }
+      container.innerHTML = `<div class="content">${generateDefenseBuilderHTML()}</div>`;
+    }
+
+    function generateDefenseBuilderHTML() {
+      const strategies = [
+        { id:'bestfit',     icon:'🎯', name:'Best Fit',    desc:'Each position filled by most experienced player' },
+        { id:'traditional', icon:'⚾', name:'Traditional', desc:'Catcher, pitcher, SS filled first by experience' },
+        { id:'development', icon:'📈', name:'Development', desc:'Players placed at secondary positions to develop range' },
+        { id:'rotation',    icon:'🔄', name:'Rotation',    desc:'Assigns players to their least-used positions' },
+      ];
+      const stratDesc = {
+        bestfit:     'Maximizes defensive experience — the most proven lineup based on innings played at each position.',
+        traditional: 'Fills the hardest positions (C, P, SS) first using most experienced players, then works outward.',
+        development: 'Puts players at secondary positions to build versatility. Good for practice games.',
+        rotation:    'Uses innings-played data to assign players to their least-used spots — builds full-roster depth.',
+      };
+
+      let html = `<div class="section-header"><span class="section-title">DEFENSE</span></div>
+        <div class="strategy-grid">`;
+      strategies.forEach(s => {
+        html += `<div class="strategy-card ${selectedDefStrategy===s.id?'selected':''}" onclick="selectDefStrategy('${s.id}')">
+          <div class="strategy-icon">${s.icon}</div>
+          <div class="strategy-name">${s.name}</div>
+          <div class="strategy-desc">${s.desc}</div>
+        </div>`;
+      });
+      html += `</div><div class="builder-strategy-label">${stratDesc[selectedDefStrategy]}</div>`;
+
+      // Active pool
+      const activeRoster = players.filter(p => !defExcludedPlayers.has(p.name));
+      const pool = [...activeRoster, ...defPickupPlayers];
+
+      // Build or use existing assignment
+      if (!currentDefAssignment || Object.keys(currentDefAssignment).length === 0) {
+        currentDefAssignment = buildDefenseAssignment(selectedDefStrategy, pool);
+        currentDefAssignment._strategy = selectedDefStrategy;
+      }
+
+      // Bench players (excluded or not assigned)
+      const assignedNames = new Set(Object.values(currentDefAssignment).filter(Boolean).map(p => p.name));
+      const benchPlayers = players.filter(p => defExcludedPlayers.has(p.name) || !assignedNames.has(p.name));
+
+      // Roster management
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;">ROSTER MANAGEMENT</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">`;
+
+      if (benchPlayers.length > 0) {
+        html += `<select id="defAddPlayerSelect" style="flex:1;min-width:140px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-family:var(--font-body);font-size:0.85rem;">
+          <option value="">+ Add from roster...</option>`;
+        benchPlayers.forEach(p => {
+          html += `<option value="${p.name}">#${p.number||'?'} ${p.name}</option>`;
+        });
+        html += `</select>
+          <select id="defAddPositionSelect" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-family:var(--font-body);font-size:0.85rem;">`;
+        DEF_POSITIONS.forEach(pos => {
+          html += `<option value="${pos}">${pos} — ${DEF_POSITION_LABELS[pos]}</option>`;
+        });
+        html += `</select>
+          <button class="btn btn-primary" onclick="defAddPlayer()" style="padding:8px 14px;min-height:unset;font-size:0.85rem;">Add ✓</button>`;
+      }
+      html += `<button class="btn btn-secondary" onclick="defAddPickup()" style="padding:8px 14px;min-height:unset;font-size:0.85rem;">+ Pickup</button>
+        </div></div>`;
+
+      // Defense field display
+      html += `<div class="lineup-builder-result">
+        <div class="builder-header">
+          <span class="builder-header-title">FIELD ASSIGNMENT</span>
+          <span style="font-size:0.75rem;color:var(--muted)">${currentTeam} · ${currentView}</span>
+        </div>`;
+
+      DEF_POSITIONS.forEach(pos => {
+        const p = currentDefAssignment[pos];
+        if (!p) {
+          html += `<div class="lineup-spot-row" style="opacity:0.4;">
+            <div class="spot-number">${DEF_POSITION_ICONS[pos]}</div>
+            <div class="spot-info"><div class="spot-name">${DEF_POSITION_LABELS[pos]}</div><div class="spot-reason">No player assigned</div></div>
+          </div>`;
+          return;
+        }
+        const pct = (getPlayerPosPct(p, pos)*100).toFixed(0);
+        const innings = getPlayerPosScore(p, pos).toFixed(1);
+        const initials = getInitials(p.name);
+        const reason = getDefReason(selectedDefStrategy, pos, p);
+        // Color the position badge by experience level
+        const pctNum = parseFloat(pct);
+        const badgeCls = pctNum >= 30 ? 'role-leadoff' : pctNum >= 10 ? 'role-contact' : 'role-bottom';
+
+        html += `<div class="lineup-spot-row">
+          <div class="spot-number">${DEF_POSITION_ICONS[pos]}</div>
+          <div class="spot-avatar"><div class="si">${initials}</div><div class="sn">#${p.number||'?'}</div></div>
+          <div class="spot-info">
+            <div class="spot-name">${p.name} <span style="font-size:0.75rem;color:var(--muted);font-weight:400;">— ${DEF_POSITION_LABELS[pos]}</span></div>
+            <div class="spot-reason">${reason}</div>
+          </div>
+          <div class="spot-stats">
+            <div class="spot-stat"><div class="sv">${innings}</div><div class="sl">Inn</div></div>
+            <div class="spot-stat"><div class="sv">${pct}%</div><div class="sl">Time</div></div>
+          </div>
+          <span class="spot-role-badge ${badgeCls}">${pctNum>=30?'Primary':pctNum>=10?'Secondary':'Limited'}</span>
+          <button onclick="defRemovePosition('${pos}')" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px;min-height:unset;width:auto;border-radius:6px;transition:color 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+        </div>`;
+      });
+
+      // Unassigned players (have data but more players than positions)
+      const unassigned = pool.filter(p => !assignedNames.has(p.name) && !defExcludedPlayers.has(p.name));
+      if (unassigned.length > 0) {
+        html += `<div style="padding:12px 18px;border-top:1px solid var(--border);font-size:0.8rem;color:var(--muted);">
+          <strong style="color:var(--text);">Bench:</strong> ${unassigned.map(p=>`#${p.number||'?'} ${p.name}`).join(' · ')}
+        </div>`;
+      }
+
+      html += `</div>
+        <div class="lineup-action-bar">
+          <button class="btn btn-primary" onclick="saveDefLineup()" style="flex:1;">💾 Save</button>
+          <button class="btn btn-secondary" onclick="toggleDefShare()" style="flex:1;">📤 Share</button>
+          <button class="btn btn-secondary" onclick="resetDefense()" style="flex:1;">↺ Re-sort</button>
+        </div>`;
+
+      if (showDefShare) {
+        html += `<div class="share-text-box">${generateDefShareText()}</div>
+          <button class="btn btn-secondary btn-full" onclick="copyDefShare()" style="margin-top:8px;">📋 Copy to Clipboard</button>`;
+      }
+
+      // Saved defense lineups
+      if (savedDefLineups.length > 0) {
+        html += `<div class="saved-lineups-section">
+          <div class="section-header" style="margin-top:16px;">
+            <span class="section-title" style="font-size:1.1rem;">SAVED ASSIGNMENTS</span>
+            <span class="section-badge">${savedDefLineups.length}</span>
+          </div>`;
+        savedDefLineups.slice().reverse().forEach((sl, ri) => {
+          const idx = savedDefLineups.length - 1 - ri;
+          html += `<div class="saved-lineup-card">
+            <div class="saved-lineup-info">
+              <div class="saved-lineup-name">${sl.name}</div>
+              <div class="saved-lineup-meta">${sl.strategy} · ${sl.team} · ${sl.date}</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-secondary" onclick="loadDefLineup(${idx})" style="padding:8px 12px;min-height:unset;font-size:0.8rem;">Load</button>
+              <button class="btn btn-danger" onclick="deleteDefLineup(${idx})" style="padding:8px 12px;min-height:unset;font-size:0.8rem;">✕</button>
+            </div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      return html;
+    }
+
+    let showDefShare = false;
+    let savedDefLineups = JSON.parse(localStorage.getItem('AC_SavedDefLineups') || '[]');
+
+    function selectDefStrategy(id) {
+      selectedDefStrategy = id;
+      currentDefAssignment = {};
+      renderDefense();
+    }
+
+    function resetDefense() {
+      const activeRoster = players.filter(p => !defExcludedPlayers.has(p.name));
+      const pool = [...activeRoster, ...defPickupPlayers];
+      currentDefAssignment = buildDefenseAssignment(selectedDefStrategy, pool);
+      currentDefAssignment._strategy = selectedDefStrategy;
+      renderDefense();
+    }
+
+    function defRemovePosition(pos) {
+      const p = currentDefAssignment[pos];
+      if (p) {
+        if (p.isPickup) defPickupPlayers = defPickupPlayers.filter(pl => pl.name !== p.name);
+        else defExcludedPlayers.add(p.name);
+      }
+      delete currentDefAssignment[pos];
+      renderDefense();
+    }
+
+    function defAddPlayer() {
+      const sel = document.getElementById('defAddPlayerSelect');
+      const posSel = document.getElementById('defAddPositionSelect');
+      if (!sel || !sel.value || !posSel) return;
+      const player = players.find(p => p.name === sel.value);
+      if (!player) return;
+      defExcludedPlayers.delete(player.name);
+      // Remove from any current position first
+      DEF_POSITIONS.forEach(pos => {
+        if (currentDefAssignment[pos] && currentDefAssignment[pos].name === player.name) {
+          delete currentDefAssignment[pos];
+        }
+      });
+      currentDefAssignment[posSel.value] = player;
+      renderDefense();
+    }
+
+    function defAddPickup() {
+      const name = prompt('Pickup player name:', '');
+      if (!name || !name.trim()) return;
+      const number = prompt('Jersey number:', '00');
+      const pos = prompt('Position (P/C/1B/2B/3B/SS/LF/CF/RF):', 'LF')?.toUpperCase();
+      if (!pos || !DEF_POSITIONS.includes(pos)) return alert('Invalid position');
+      const pickup = { name: name.trim(), number: number||'00', isPickup: true,
+        posP:0,posC:0,pos1B:0,pos2B:0,pos3B:0,posSS:0,posLF:0,posCF:0,posRF:0 };
+      defPickupPlayers.push(pickup);
+      currentDefAssignment[pos] = pickup;
+      renderDefense();
+    }
+
+    function toggleDefShare() {
+      showDefShare = !showDefShare;
+      renderDefense();
+    }
+
+    function generateDefShareText() {
+      const stratNames = { bestfit:'Best Fit', traditional:'Traditional', development:'Development', rotation:'Rotation' };
+      let text = `🛡️ ${currentTeam} DEFENSE\n`;
+      text += `Strategy: ${stratNames[selectedDefStrategy] || selectedDefStrategy}\n`;
+      text += `${new Date().toLocaleDateString()}\n\n`;
+      DEF_POSITIONS.forEach(pos => {
+        const p = currentDefAssignment[pos];
+        text += `${pos.padEnd(3)} — ${p ? `#${p.number||'?'} ${p.name}` : 'Open'}\n`;
+      });
+      text += `\nBuilt with Assistant Coach`;
+      return text;
+    }
+
+    function copyDefShare() {
+      navigator.clipboard.writeText(generateDefShareText()).then(() => alert('✅ Defense copied to clipboard!'));
+    }
+
+    function saveDefLineup() {
+      if (!Object.keys(currentDefAssignment).length) return alert('No assignment to save');
+      const name = prompt('Name this defense:', `${currentTeam} - ${new Date().toLocaleDateString()}`);
+      if (!name) return;
+      savedDefLineups.push({
+        name, strategy: selectedDefStrategy, team: currentTeam,
+        date: new Date().toLocaleDateString(),
+        assignment: Object.fromEntries(
+          Object.entries(currentDefAssignment)
+            .filter(([k,v]) => v && typeof v === 'object')
+            .map(([pos,p]) => [pos, { name: p.name, number: p.number }])
+        )
+      });
+      localStorage.setItem('AC_SavedDefLineups', JSON.stringify(savedDefLineups));
+      renderDefense();
+      alert('✅ Defense saved!');
+    }
+
+    function deleteDefLineup(i) {
+      if (!confirm('Delete this saved defense?')) return;
+      savedDefLineups.splice(i, 1);
+      localStorage.setItem('AC_SavedDefLineups', JSON.stringify(savedDefLineups));
+      renderDefense();
+    }
+
+    function loadDefLineup(i) {
+      const sl = savedDefLineups[i];
+      if (!sl) return;
+      currentDefAssignment = {};
+      Object.entries(sl.assignment).forEach(([pos, saved]) => {
+        const player = players.find(p => p.name === saved.name) ||
+          { name: saved.name, number: saved.number, isPickup: false,
+            posP:0,posC:0,pos1B:0,pos2B:0,pos3B:0,posSS:0,posLF:0,posCF:0,posRF:0 };
+        currentDefAssignment[pos] = player;
+      });
+      selectedDefStrategy = sl.strategy || selectedDefStrategy;
+      renderDefense();
     }
 
     // ── DRAG AND DROP ──
