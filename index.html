@@ -834,24 +834,28 @@
     }
 
     /* ── DRAG AND DROP ── */
-    .lineup-spot-row {
-      cursor: grab;
-    }
     .lineup-spot-row.dragging {
-      opacity: 0.4;
-      cursor: grabbing;
+      opacity: 0.3;
     }
     .lineup-spot-row.drag-over {
       border-top: 2px solid var(--accent);
-      background: rgba(0,255,135,0.05);
+      background: rgba(0,255,135,0.07);
     }
     .drag-handle {
       color: var(--muted);
-      font-size: 1.1rem;
+      font-size: 1.3rem;
       cursor: grab;
-      padding: 0 4px;
+      cursor: -webkit-grab;
+      padding: 4px 6px;
       flex-shrink: 0;
       user-select: none;
+      touch-action: none; /* critical for iOS touch drag */
+      -webkit-user-select: none;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+      cursor: -webkit-grabbing;
+      color: var(--accent);
     }
     .lineup-action-bar {
       display: flex;
@@ -1988,13 +1992,10 @@
           ? '⭐ Pickup player — not in season stats'
           : getSpotReason(selectedStrategy, i, p);
         const avgCls = parseFloat(avg)>=0.3?'avg-good':parseFloat(avg)>=0.2?'avg-ok':'avg-low';
-        html += `<div class="lineup-spot-row" draggable="true"
-          ondragstart="onDragStart(event,${i})"
-          ondragover="onDragOver(event,${i})"
-          ondragleave="onDragLeave(event)"
-          ondrop="onDrop(event,${i})"
-          ondragend="onDragEnd(event)">
-          <div class="drag-handle">⠿</div>
+        html += `<div class="lineup-spot-row" data-index="${i}">
+          <div class="drag-handle" 
+            onmousedown="startDrag(event,${i})"
+            ontouchstart="startDrag(event,${i})">⠿</div>
           <div class="spot-number">${i+1}</div>
           <div class="spot-avatar"><div class="si">${initials}</div><div class="sn">#${p.number}</div></div>
           <div class="spot-info">
@@ -2749,38 +2750,86 @@
     }
 
     // ── DRAG AND DROP ──
-    function onDragStart(event, index) {
+    // ── UNIFIED MOUSE + TOUCH DRAG (works on iOS Safari) ──
+    let dragEl = null;       // the DOM element being dragged
+    let dragClone = null;    // floating clone that follows finger/cursor
+    let dragStartY = 0;
+    let dragOffsetY = 0;
+
+    function startDrag(event, index) {
+      event.preventDefault();
       dragSrcIndex = index;
-      event.currentTarget.classList.add('dragging');
-      event.dataTransfer.effectAllowed = 'move';
+
+      const rows = document.querySelectorAll('.lineup-spot-row');
+      dragEl = rows[index];
+      if (!dragEl) return;
+
+      dragEl.classList.add('dragging');
+
+      // Create a visual clone that floats under the finger
+      dragClone = dragEl.cloneNode(true);
+      dragClone.style.cssText = `
+        position:fixed; z-index:9999; pointer-events:none;
+        width:${dragEl.offsetWidth}px; opacity:0.9;
+        background:var(--card); border:2px solid var(--accent);
+        border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.5);
+        transition:none; left:${dragEl.getBoundingClientRect().left}px;
+      `;
+
+      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+      dragStartY = clientY;
+      dragOffsetY = clientY - dragEl.getBoundingClientRect().top;
+      dragClone.style.top = (clientY - dragOffsetY) + 'px';
+      document.body.appendChild(dragClone);
+
+      document.addEventListener('mousemove', onDragMove, { passive: false });
+      document.addEventListener('touchmove', onDragMove, { passive: false });
+      document.addEventListener('mouseup', endDrag);
+      document.addEventListener('touchend', endDrag);
     }
 
-    function onDragOver(event, index) {
+    function onDragMove(event) {
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
-      // Highlight the row being dragged over
+      if (!dragClone) return;
+
+      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+      dragClone.style.top = (clientY - dragOffsetY) + 'px';
+
+      // Find which row the clone is hovering over
       document.querySelectorAll('.lineup-spot-row').forEach((row, i) => {
-        row.classList.toggle('drag-over', i === index && i !== dragSrcIndex);
+        if (row === dragEl) return;
+        const rect = row.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        row.classList.toggle('drag-over', clientY >= rect.top && clientY <= rect.bottom);
       });
     }
 
-    function onDragLeave(event) {
-      event.currentTarget.classList.remove('drag-over');
-    }
+    function endDrag(event) {
+      document.removeEventListener('mousemove', onDragMove);
+      document.removeEventListener('touchmove', onDragMove);
+      document.removeEventListener('mouseup', endDrag);
+      document.removeEventListener('touchend', endDrag);
 
-    function onDrop(event, dropIndex) {
-      event.preventDefault();
-      if (dragSrcIndex === null || dragSrcIndex === dropIndex) return;
-      // Reorder currentBuiltLineup
-      const moved = currentBuiltLineup.splice(dragSrcIndex, 1)[0];
-      currentBuiltLineup.splice(dropIndex, 0, moved);
-      dragSrcIndex = null;
-      renderLineupTracker();
-    }
+      if (dragClone) { dragClone.remove(); dragClone = null; }
+      if (dragEl) { dragEl.classList.remove('dragging'); }
 
-    function onDragEnd(event) {
-      event.currentTarget.classList.remove('dragging');
-      document.querySelectorAll('.lineup-spot-row').forEach(row => row.classList.remove('drag-over'));
+      // Find drop target
+      const clientY = event.changedTouches ? event.changedTouches[0].clientY : event.clientY;
+      let dropIndex = null;
+      document.querySelectorAll('.lineup-spot-row').forEach((row, i) => {
+        const rect = row.getBoundingClientRect();
+        if (clientY >= rect.top && clientY <= rect.bottom) dropIndex = i;
+        row.classList.remove('drag-over');
+      });
+
+      dragEl = null;
+
+      if (dropIndex !== null && dragSrcIndex !== null && dropIndex !== dragSrcIndex) {
+        const moved = currentBuiltLineup.splice(dragSrcIndex, 1)[0];
+        currentBuiltLineup.splice(dropIndex, 0, moved);
+        renderLineupTracker();
+      }
+
       dragSrcIndex = null;
     }
 
