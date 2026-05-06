@@ -2517,8 +2517,21 @@
             <div style="font-size:1.3rem;line-height:1;opacity:0.4;">${DEF_POSITION_ICONS[pos]}</div>
             <div style="font-family:var(--font-display);font-size:0.7rem;color:var(--muted);letter-spacing:1px;margin-top:1px;">${pos}</div>
           </div>
-          <div class="spot-info"><div class="spot-name" style="color:var(--muted);">${DEF_POSITION_LABELS[pos]}</div><div class="spot-reason" style="color:var(--danger);">⚠ No player assigned</div></div>
-          <button class="btn btn-primary" onclick="defFillPosition('${pos}')" style="padding:8px 14px;min-height:unset;font-size:0.8rem;white-space:nowrap;">+ Fill</button>
+          <div class="spot-info">
+            <div class="spot-name" style="color:var(--muted);">${DEF_POSITION_LABELS[pos]}</div>
+            <div class="spot-reason" style="color:var(--danger);">⚠ No player assigned</div>
+            ${defFillTargetPos === pos ? (() => {
+              const activeRoster = players.filter(p => !defExcludedPlayers.has(p.name));
+              const assignedNames = new Set(Object.values(currentDefAssignment).filter(Boolean).map(p => p && p.name));
+              const available = [...activeRoster, ...defPickupPlayers].filter(p => !assignedNames.has(p.name));
+              if (!available.length) return '<div style="color:var(--muted);font-size:0.75rem;margin-top:6px;">No available players</div>';
+              return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">' +
+                available.map(p =>
+                  `<button onclick="defFillSelect('${p.name.replace(/'/g,"\'")}')" style="background:var(--card);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:5px 10px;font-size:0.78rem;cursor:pointer;min-height:unset;width:auto;">#${p.number||'?'} ${p.name}</button>`
+                ).join('') + '</div>';
+            })() : ''}
+          </div>
+          <button class="btn ${defFillTargetPos === pos ? 'btn-danger' : 'btn-primary'}" onclick="defFillPosition('${pos}')" style="padding:8px 14px;min-height:unset;font-size:0.8rem;white-space:nowrap;flex-shrink:0;">${defFillTargetPos === pos ? '✕ Cancel' : '+ Fill'}</button>
           </div>`;
           return;
         }
@@ -2638,27 +2651,26 @@
       renderDefense();
     }
 
+    let defFillTargetPos = null; // position currently being filled
+
     function defFillPosition(pos) {
-      // Quick-fill a specific open position — show a player picker
-      const activeRoster = players.filter(p => !defExcludedPlayers.has(p.name));
-      const assignedNames = new Set(Object.values(currentDefAssignment).filter(Boolean).map(p => p.name));
-      const available = [...activeRoster, ...defPickupPlayers].filter(p => !assignedNames.has(p.name));
-
-      if (!available.length) {
-        alert('No available players — all are already assigned. Remove a player first.');
-        return;
+      // Toggle inline picker — if same pos clicked again, close it
+      if (defFillTargetPos === pos) {
+        defFillTargetPos = null;
+      } else {
+        defFillTargetPos = pos;
       }
+      renderDefense();
+    }
 
-      // Build a quick picker prompt
-      const options = available.map((p, i) => `${i+1}. #${p.number||'?'} ${p.name}`).join('\n');
-      const choice = prompt(`Pick player for ${DEF_POSITION_ICONS[pos]} ${DEF_POSITION_LABELS[pos]}:\n\n${options}\n\nEnter number:`);
-      if (!choice) return;
-      const idx = parseInt(choice) - 1;
-      if (isNaN(idx) || idx < 0 || idx >= available.length) return alert('Invalid selection');
-
-      const player = available[idx];
+    function defFillSelect(playerName) {
+      if (!defFillTargetPos) return;
+      const activeRoster = players.filter(p => !defExcludedPlayers.has(p.name));
+      const player = [...activeRoster, ...defPickupPlayers].find(p => p.name === playerName);
+      if (!player) return;
       defExcludedPlayers.delete(player.name);
-      currentDefAssignment[pos] = player;
+      currentDefAssignment[defFillTargetPos] = player;
+      defFillTargetPos = null;
       renderDefense();
     }
 
