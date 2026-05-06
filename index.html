@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1913,7 +1914,9 @@
 
       // Build lineup — initialize or reset when strategy changes
       if (currentBuiltLineup.length === 0 || currentBuiltLineup._strategy !== selectedStrategy) {
-        const lineup = buildLineup(selectedStrategy); // already respects excludedPlayers + pickupPlayers
+        const activeRoster = players.filter(p => !excludedPlayers.has(p.name));
+        const pool = [...activeRoster, ...pickupPlayers];
+        const lineup = buildLineupFromPool(selectedStrategy, pool);
         if (!lineup || !lineup.length) {
           return html + `<div class="empty-state"><div class="empty-icon">⚾</div><p>Could not generate lineup.</p></div>`;
         }
@@ -2030,8 +2033,14 @@
     }
 
     function resetLineup() {
-      // Re-run strategy using active roster (respects all removes and pickups)
-      currentBuiltLineup = [];
+      // Re-run the selected strategy using the current active pool
+      // (full roster minus excluded players, plus any pickup players)
+      // This means Re-sort always respects removes/adds the coach has made
+      const activeRoster = players.filter(p => !excludedPlayers.has(p.name));
+      const pool = [...activeRoster, ...pickupPlayers];
+      const reordered = buildLineupFromPool(selectedStrategy, pool);
+      currentBuiltLineup = reordered.length ? reordered : pool.slice();
+      currentBuiltLineup._strategy = selectedStrategy;
       renderLineupTracker();
     }
 
