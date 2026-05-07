@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!--
   ============================================================
@@ -1423,9 +1424,10 @@
 
     // Handle redirect result from mobile sign-in FIRST
     // This must complete before setting up onAuthStateChanged
+    let handlingRedirect = false;
     auth.getRedirectResult().then(async result => {
       if (result && result.user) {
-        // Successfully signed in via redirect — handleUser via onAuthStateChanged
+        handlingRedirect = true; // suppress null user flash
         console.log("Redirect sign-in successful:", result.user.email);
       }
     }).catch(error => {
@@ -1452,7 +1454,12 @@
             if (user && !isViewerMode) await handleUser(user);
           });
         } else {
-          auth.onAuthStateChanged(async (user) => { await handleUser(user); });
+          auth.onAuthStateChanged(async (user) => {
+            // If we just completed a redirect and get null first, ignore it
+            if (!user && handlingRedirect) return;
+            handlingRedirect = false;
+            await handleUser(user);
+          });
         }
       });
     });
@@ -1460,8 +1467,19 @@
     function signIn() {
       const provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      // Always use redirect — most reliable across all browsers and devices
-      auth.signInWithRedirect(provider);
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        auth.signInWithRedirect(provider);
+      } else {
+        auth.signInWithPopup(provider)
+          .catch((error) => {
+            if (error.code === 'auth/popup-blocked') {
+              auth.signInWithRedirect(provider);
+            } else if (error.code !== 'auth/popup-closed-by-user') {
+              alert("Sign-in error: " + error.message);
+            }
+          });
+      }
     }
     function signOut() { auth.signOut(); }
 
