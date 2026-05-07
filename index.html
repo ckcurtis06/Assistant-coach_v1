@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <!--
   ============================================================
@@ -1304,38 +1303,34 @@
     async function loadViewerData() {
       if (!isViewerMode || !viewerUID) return;
       try {
-        const [teamsDoc, lineupsDoc] = await Promise.all([
+        const [teamsDoc, lineupsDoc, savedDoc] = await Promise.all([
           db.collection("users").doc(viewerUID).collection("coachData").doc("teams").get(),
-          db.collection("users").doc(viewerUID).collection("coachData").doc("lineups").get()
+          db.collection("users").doc(viewerUID).collection("coachData").doc("lineups").get(),
+          db.collection("users").doc(viewerUID).collection("coachData").doc("savedLineups").get()
         ]);
         if (teamsDoc.exists)   allTeams = teamsDoc.data().teams || {};
         if (lineupsDoc.exists) allLineupGames = lineupsDoc.data().lineupGames || {};
-        // Load saved lineups from Firebase
-        try {
-          const savedDoc = await userPath().collection("coachData").doc("savedLineups").get();
-          if (savedDoc.exists) {
-            savedLineups = savedDoc.data().savedLineups || [];
-            savedDefLineups = savedDoc.data().savedDefLineups || [];
-            localStorage.setItem('AC_SavedLineups', JSON.stringify(savedLineups));
-            localStorage.setItem('AC_SavedDefLineups', JSON.stringify(savedDefLineups));
-          }
-        } catch(e) { console.warn("Could not load saved lineups:", e); }
+        if (savedDoc.exists) {
+          savedLineups = savedDoc.data().savedLineups || [];
+          savedDefLineups = savedDoc.data().savedDefLineups || [];
+        }
       } catch(e) {
         console.error("Viewer data load error:", e);
       }
 
       // Show viewer banner
-      document.getElementById("viewerBanner").style.display = "flex";
-      document.getElementById("viewerBannerSub").textContent =
-        `Viewing shared team — read only`;
+      const banner = document.getElementById("viewerBanner");
+      if (banner) banner.style.display = "flex";
+      const bannerSub = document.getElementById("viewerBannerSub");
+      if (bannerSub) bannerSub.textContent = "Viewing shared team — read only";
 
       // Hide login screen, show app
       document.getElementById("loginScreen").style.display = "none";
       document.getElementById("appContent").style.display = "block";
-
-      // Hide all edit controls
       document.getElementById("editControls").style.display = "none";
       document.getElementById("editToggleBtn").style.display = "none";
+      const gearBtn = document.getElementById("gearBtn");
+      if (gearBtn) gearBtn.style.display = "none";
 
       if (Object.keys(allTeams).length > 0) {
         currentTeam = Object.keys(allTeams)[0];
@@ -1343,7 +1338,12 @@
         currentView = "Career";
       }
       updateTeamSelector();
-      if (currentTeam) loadCurrentView();
+      if (currentTeam) {
+        loadCurrentView();
+      } else {
+        document.getElementById("playerList").innerHTML =
+          '<div class="empty-state"><div class="empty-icon">⚾</div><p>No team data found for this share link.</p></div>';
+      }
     }
 
     function exitViewerMode() {
