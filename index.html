@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <!--
   ============================================================
@@ -1368,31 +1367,10 @@
     const db   = firebase.firestore();
     let currentUser = null;
     let isOwner = false; // true whenever any user is signed in
-    let viewingTeamCode = null; // set when viewing via share link
+    // Share links handled by checkForShareCode() + loadViewerData()
 
     async function handleUser(user) {
       currentUser = user;
-
-      // If viewing via share link — skip normal auth flow
-      if (viewingTeamCode) {
-        isOwner = false;
-        document.getElementById("loginScreen").style.display = "none";
-        document.getElementById("appContent").style.display = "block";
-        document.getElementById("gearBtn").style.display = "none";
-        document.getElementById("editControls").style.display = "none";
-        if (user) {
-          document.getElementById("authStatus").textContent = `👁 ${user.email.split('@')[0]} (viewing)`;
-          document.getElementById("authStatus").className = "signed-in";
-          document.getElementById("signInBtn").style.display = "none";
-          document.getElementById("signOutBtn").style.display = "inline-block";
-        } else {
-          document.getElementById("authStatus").textContent = "👁 View only";
-          document.getElementById("signInBtn").style.display = "none";
-          document.getElementById("signOutBtn").style.display = "none";
-        }
-        await loadFromShareCode(viewingTeamCode);
-        return;
-      }
 
       if (user) {
         isOwner = true;
@@ -2390,10 +2368,7 @@
     let dragSrcIndex = null;
     let showShareText = false;
 
-    // ── SHARE LINK ──
-    // Read ?team=CODE from URL — must be after all variable declarations
-    const urlParams = new URLSearchParams(window.location.search);
-    viewingTeamCode = urlParams.get('team') || null;
+    // Share link detection handled by checkForShareCode()
 
     // ── DEFENSE STATE ──
     let selectedDefStrategy = 'bestfit';
