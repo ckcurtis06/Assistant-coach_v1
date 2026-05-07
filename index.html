@@ -1,4 +1,17 @@
 <!DOCTYPE html>
+<!--
+  ============================================================
+  Assistant Coach ⚾
+  Copyright © 2026 Cody Curtis. All rights reserved.
+
+  This software and its source code are the intellectual
+  property of Cody Curtis. Unauthorized copying, modification,
+  distribution, or use of this code, in whole or in part,
+  without express written permission is strictly prohibited.
+
+  Built with Claude by Anthropic.
+  ============================================================
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -873,6 +886,39 @@
       margin-top: 10px;
     }
 
+    /* ── SHARE LINK ── */
+    .share-link-box {
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 10px;
+      word-break: break-all;
+      font-size: 0.8rem;
+      color: var(--accent);
+      line-height: 1.5;
+    }
+    .viewer-banner {
+      background: linear-gradient(135deg, #0d1f12, #0a1520);
+      border-bottom: 2px solid var(--accent);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .viewer-banner-text {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .viewer-banner-sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
     /* scrollbar */
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -964,6 +1010,9 @@
       <div class="login-icon">📊</div>
       <div class="login-title">COACH LOGIN</div>
       <div class="login-desc">Sign in with your Google account to access your team stats, lineup tracker, and box score analytics.</div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:16px;padding:10px;background:var(--surface);border-radius:8px;line-height:1.5;">
+        👁 Viewing someone's team? Use the share link they sent you — you don't need to sign in.
+      </div>
       <button class="btn-google" onclick="if(typeof signIn==='function'){signIn();}else{alert('App still loading, please wait a moment and try again.');}">
         <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A353" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/></svg>
         Sign in with Google
@@ -986,6 +1035,15 @@
       </div>
     </div>
   </header>
+
+  <!-- VIEWER BANNER (shown when viewing someone else's team via share link) -->
+  <div class="viewer-banner" id="viewerBanner" style="display:none;">
+    <div>
+      <div class="viewer-banner-text">👁 Viewing in read-only mode</div>
+      <div class="viewer-banner-sub" id="viewerBannerSub">Shared team link</div>
+    </div>
+    <button class="btn-sm" onclick="exitViewerMode()" style="background:var(--border);color:var(--muted);">Exit</button>
+  </div>
 
   <!-- HERO BANNER -->
   <div class="hero" id="heroBanner" style="display:none;">
@@ -1030,6 +1088,14 @@
         <button class="btn btn-danger" onclick="removeCurrentTeam()">🗑 Remove Team</button>
       </div>
 
+      <div class="edit-section-title" style="margin-top:8px;">Share Link</div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="getShareLink()" style="flex:1;">🔗 Get Share Link</button>
+        <button class="btn btn-danger" onclick="regenerateShareLink()" style="flex:1;">↺ New Link</button>
+      </div>
+      <div id="shareLinkBox" style="display:none;" class="share-link-box"></div>
+      <button id="copyShareLinkBtn" onclick="copyShareLink()" style="display:none;" class="btn btn-primary btn-full" style="margin-top:6px;">📋 Copy Link</button>
+
       <div class="edit-section-title" style="margin-top:8px;">Import CSV</div>
       <input type="file" id="csvFile" accept=".csv" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;width:100%;font-family:var(--font-body);font-size:0.85rem;">
       <div class="btn-row">
@@ -1039,6 +1105,13 @@
       <div class="edit-section-title" style="margin-top:8px;">Season</div>
       <div class="btn-row">
         <button class="btn btn-danger" onclick="deleteCurrentSeason()">🗑 Delete Current Season</button>
+      </div>
+
+      <div class="edit-section-title" style="margin-top:8px;">Share with Parents & Coaches</div>
+      <p style="font-size:0.78rem;color:var(--muted);margin:4px 0 8px;">Anyone with your share link can view your team data — read only, no login required.</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generateShareCode()">🔗 Copy Share Link</button>
+        <button class="btn btn-secondary" onclick="regenerateShareCode()">↺ New Link</button>
       </div>
 
     </div>
@@ -1114,6 +1187,151 @@
       return allLineupGames[currentTeam];
     }
 
+    // ── SHARE LINK / VIEWER MODE ──
+    let isViewerMode = false;
+    let viewerUID = null; // UID of the coach whose data we're viewing
+
+    function generateTeamCode() {
+      // 8 character alphanumeric code
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return code;
+    }
+
+    function getShareURL(code) {
+      const base = window.location.href.split('?')[0];
+      return `${base}?team=${code}`;
+    }
+
+    async function getShareLink() {
+      if (!currentUser) return;
+      // Check if coach already has a share code
+      try {
+        const doc = await db.collection("users").doc(currentUser.uid).collection("coachData").doc("shareCode").get();
+        let code;
+        if (doc.exists) {
+          code = doc.data().code;
+        } else {
+          // Generate new code and save it
+          code = generateTeamCode();
+          await db.collection("users").doc(currentUser.uid).collection("coachData").doc("shareCode").set({ code, uid: currentUser.uid });
+          // Also save reverse lookup: code -> uid
+          await db.collection("shareCodes").doc(code).set({ uid: currentUser.uid, createdAt: new Date().toISOString() });
+        }
+        const url = getShareURL(code);
+        const box = document.getElementById("shareLinkBox");
+        const btn = document.getElementById("copyShareLinkBtn");
+        box.textContent = url;
+        box.style.display = "block";
+        btn.style.display = "block";
+        btn.dataset.url = url;
+      } catch(e) {
+        console.error("Share link error:", e);
+        alert("Error generating share link. Please try again.");
+      }
+    }
+
+    async function regenerateShareLink() {
+      if (!currentUser) return;
+      if (!confirm("Generate a new share link? The old link will stop working.")) return;
+      try {
+        // Get old code to delete it
+        const doc = await db.collection("users").doc(currentUser.uid).collection("coachData").doc("shareCode").get();
+        if (doc.exists) {
+          const oldCode = doc.data().code;
+          await db.collection("shareCodes").doc(oldCode).delete();
+        }
+        // Generate new code
+        const code = generateTeamCode();
+        await db.collection("users").doc(currentUser.uid).collection("coachData").doc("shareCode").set({ code, uid: currentUser.uid });
+        await db.collection("shareCodes").doc(code).set({ uid: currentUser.uid, createdAt: new Date().toISOString() });
+        const url = getShareURL(code);
+        const box = document.getElementById("shareLinkBox");
+        const btn = document.getElementById("copyShareLinkBtn");
+        box.textContent = url;
+        box.style.display = "block";
+        btn.style.display = "block";
+        btn.dataset.url = url;
+        alert("✅ New share link generated!");
+      } catch(e) {
+        alert("Error regenerating link.");
+      }
+    }
+
+    function copyShareLink() {
+      const btn = document.getElementById("copyShareLinkBtn");
+      const url = btn.dataset.url;
+      if (!url) return;
+      navigator.clipboard.writeText(url).then(() => alert("✅ Share link copied!"));
+    }
+
+    async function checkForShareCode() {
+      // Check if URL has ?team=CODE
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('team');
+      if (!code) return false;
+
+      try {
+        const doc = await db.collection("shareCodes").doc(code).get();
+        if (!doc.exists) {
+          alert("This share link is invalid or has expired.");
+          return false;
+        }
+        viewerUID = doc.data().uid;
+        isViewerMode = true;
+        return true;
+      } catch(e) {
+        console.error("Share code lookup error:", e);
+        return false;
+      }
+    }
+
+    async function loadViewerData() {
+      if (!isViewerMode || !viewerUID) return;
+      try {
+        const [teamsDoc, lineupsDoc] = await Promise.all([
+          db.collection("users").doc(viewerUID).collection("coachData").doc("teams").get(),
+          db.collection("users").doc(viewerUID).collection("coachData").doc("lineups").get()
+        ]);
+        if (teamsDoc.exists)   allTeams = teamsDoc.data().teams || {};
+        if (lineupsDoc.exists) allLineupGames = lineupsDoc.data().lineupGames || {};
+      } catch(e) {
+        console.error("Viewer data load error:", e);
+      }
+
+      // Show viewer banner
+      document.getElementById("viewerBanner").style.display = "flex";
+      document.getElementById("viewerBannerSub").textContent =
+        `Viewing shared team — read only`;
+
+      // Hide login screen, show app
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("appContent").style.display = "block";
+
+      // Hide all edit controls
+      document.getElementById("editControls").style.display = "none";
+      document.getElementById("editToggleBtn").style.display = "none";
+
+      if (Object.keys(allTeams).length > 0) {
+        currentTeam = Object.keys(allTeams)[0];
+        updateSeasonSelector();
+        currentView = "Career";
+      }
+      updateTeamSelector();
+      if (currentTeam) loadCurrentView();
+    }
+
+    function exitViewerMode() {
+      // Remove ?team= from URL and reload
+      window.location.href = window.location.href.split('?')[0];
+    }
+
+    // ── CHECK FOR SHARE LINK ──
+    // Read ?team=CODE from URL before anything else
+    const urlParams = new URLSearchParams(window.location.search);
+    viewingTeamCode = urlParams.get('team') || null;
+
     // ── FIREBASE ──
     const firebaseConfig = {
       apiKey: "AIzaSyBkXyrFwEVtfNk7tAbBOaAAxQQcOENp0Hs",
@@ -1128,11 +1346,34 @@
     const db   = firebase.firestore();
     let currentUser = null;
     let isOwner = false; // true whenever any user is signed in
+    let viewingTeamCode = null; // set when viewing via share link
 
     async function handleUser(user) {
       currentUser = user;
+
+      // If viewing via share link — skip normal auth flow
+      if (viewingTeamCode) {
+        isOwner = false;
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("appContent").style.display = "block";
+        document.getElementById("editToggleBtn").style.display = "none";
+        document.getElementById("editControls").style.display = "none";
+        if (user) {
+          document.getElementById("authStatus").textContent = `👁 ${user.email.split('@')[0]} (viewing)`;
+          document.getElementById("authStatus").className = "signed-in";
+          document.getElementById("signInBtn").style.display = "none";
+          document.getElementById("signOutBtn").style.display = "inline-block";
+        } else {
+          document.getElementById("authStatus").textContent = "👁 View only";
+          document.getElementById("signInBtn").style.display = "none";
+          document.getElementById("signOutBtn").style.display = "none";
+        }
+        await loadFromShareCode(viewingTeamCode);
+        return;
+      }
+
       if (user) {
-        isOwner = true; // every signed-in user is coach of their own data
+        isOwner = true;
         const status = document.getElementById("authStatus");
         status.textContent = `✅ ${user.email.split('@')[0]}`;
         status.className = "signed-in";
@@ -1153,12 +1394,24 @@
         document.getElementById("editControls").style.display = "none";
         document.getElementById("loginScreen").style.display = "flex";
         document.getElementById("appContent").style.display = "none";
-        return; // don't load data if signed out
+        return;
       }
       await loadFromFirebase();
     }
 
-    auth.onAuthStateChanged(async (user) => { await handleUser(user); });
+    // On load: check if this is a share link visit FIRST
+    // If it is, load viewer data without requiring sign-in
+    checkForShareCode().then(async (isShare) => {
+      if (isShare) {
+        await loadViewerData();
+        // Still set up auth listener in case they sign in
+        auth.onAuthStateChanged(async (user) => {
+          if (user && !isViewerMode) await handleUser(user);
+        });
+      } else {
+        auth.onAuthStateChanged(async (user) => { await handleUser(user); });
+      }
+    });
 
     function signIn() {
       const provider = new firebase.auth.GoogleAuthProvider();
@@ -1216,8 +1469,84 @@
       if (currentTeam) loadCurrentView();
     }
 
-    async function saveData() {
+    async function loadFromShareCode(code) {
+      // Load a coach's data by their share code — read only
+      try {
+        const snap = await db.collection("shareCodes").doc(code).get();
+        if (!snap.exists) {
+          document.getElementById("playerList").innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">🔗</div>
+              <p>This share link is invalid or has been removed.<br>Ask your coach for an updated link.</p>
+            </div>`;
+          return;
+        }
+        const uid = snap.data().uid;
+        const teamName = snap.data().teamName || '';
+        // Load that coach's data
+        const [teamsDoc, lineupsDoc] = await Promise.all([
+          db.collection("users").doc(uid).collection("coachData").doc("teams").get(),
+          db.collection("users").doc(uid).collection("coachData").doc("lineups").get()
+        ]);
+        if (teamsDoc.exists)   allTeams = teamsDoc.data().teams || {};
+        if (lineupsDoc.exists) allLineupGames = lineupsDoc.data().lineupGames || {};
+
+        if (Object.keys(allTeams).length > 0) {
+          currentTeam = Object.keys(allTeams)[0];
+          updateSeasonSelector();
+          currentView = "Career";
+        }
+        updateTeamSelector();
+        if (currentTeam) loadCurrentView();
+
+        // Show a view-only banner
+        document.getElementById("heroBanner") && (document.getElementById("heroBanner").style.display = "block");
+      } catch(err) {
+        console.error("Share link load error:", err);
+        document.getElementById("playerList").innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Error loading team data.</p></div>`;
+      }
+    }
+
+    async function generateShareCode() {
+      if (!currentUser || !currentTeam) return alert("Sign in and select a team first");
+      // Check if code already exists for this user
+      const existing = await db.collection("shareCodes")
+        .where("uid", "==", currentUser.uid).get();
+
+      let code;
+      if (!existing.empty) {
+        code = existing.docs[0].id;
+      } else {
+        // Generate a new unique 8-char code
+        code = Math.random().toString(36).substring(2, 6).toUpperCase() +
+               Math.random().toString(36).substring(2, 6).toUpperCase();
+        await db.collection("shareCodes").doc(code).set({
+          uid: currentUser.uid,
+          teamName: currentTeam,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      const shareUrl = `${window.location.origin}${window.location.pathname}?team=${code}`;
+      await navigator.clipboard.writeText(shareUrl);
+      alert(`✅ Share link copied!\n\n${shareUrl}\n\nAnyone with this link can view your team data in read-only mode.`);
+    }
+
+    async function regenerateShareCode() {
       if (!currentUser) return;
+      if (!confirm("Regenerate share link? The old link will stop working.")) return;
+      // Delete existing codes for this user
+      const existing = await db.collection("shareCodes")
+        .where("uid", "==", currentUser.uid).get();
+      const batch = db.batch();
+      existing.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      // Generate new one
+      await generateShareCode();
+    }
+
+    async function saveData() {
+      if (!currentUser || isViewerMode) return; // viewers cannot save
       try { await userPath().collection("coachData").doc("teams").set({ teams: allTeams, updatedAt: new Date().toISOString() }); }
       catch(e) { console.warn("Firebase teams save failed:", e); }
       try { await userPath().collection("coachData").doc("lineups").set({ lineupGames: allLineupGames, updatedAt: new Date().toISOString() }); }
@@ -1306,7 +1635,7 @@
               number: num, name, mergeKey: name.toLowerCase(), firstName: first.toLowerCase(),
               gp: parseInt(row["GP"]||0), atBats: parseInt(row["AB"]||0), hits: parseInt(row["H"]||0),
               walks: parseInt(row["BB"]||0), homeRuns: parseInt(row["HR"]||0), rbis: parseInt(row["RBI"]||0),
-              strikeouts: parseInt(row["SO"]||0), inningsPitched: parseFloat(row["IP"]||0),
+              strikeouts: parseInt(row["SO"]||0), strikeoutsLooking: parseInt(row["K-L"]||0), inningsPitched: parseFloat(row["IP"]||0),
               earnedRuns: parseInt(row["ER"]||0), battingOrder: parseInt(row["BO"]||0),
               posP: parseFloat(row["DEF_P"]||0), posC: parseFloat(row["DEF_C"]||0),
               pos1B: parseFloat(row["DEF_1B"]||0), pos2B: parseFloat(row["DEF_2B"]||0),
@@ -1373,7 +1702,7 @@
           const key = p.mergeKey || p.name.toLowerCase();
           if (!map[key]) map[key] = {...p, gp:0,atBats:0,hits:0,walks:0,homeRuns:0,rbis:0,strikeouts:0,inningsPitched:0,earnedRuns:0};
           const t = map[key];
-          ["gp","atBats","hits","walks","homeRuns","rbis","strikeouts","inningsPitched","earnedRuns",
+          ["gp","atBats","hits","walks","homeRuns","rbis","strikeouts","strikeoutsLooking","inningsPitched","earnedRuns",
            "posP","posC","pos1B","pos2B","pos3B","posSS","posLF","posCF","posRF"]
            .forEach(k => { t[k] = (t[k]||0) + (p[k]||0); });
         });
@@ -1497,6 +1826,8 @@
           <div class="stat-pill"><div class="sp-val">${p.rbis||0}</div><div class="sp-lbl">RBI</div></div>
           <div class="stat-pill"><div class="sp-val">${p.walks}</div><div class="sp-lbl">BB</div></div>
           <div class="stat-pill"><div class="sp-val">${p.strikeouts}</div><div class="sp-lbl">SO</div></div>
+          <div class="stat-pill"><div class="sp-val">${p.strikeoutsLooking||0}</div><div class="sp-lbl">K-L</div></div>
+          <div class="stat-pill"><div class="sp-val">${Math.max(0,(p.strikeouts||0)-(p.strikeoutsLooking||0))}</div><div class="sp-lbl">K-Sw</div></div>
           <div class="stat-pill"><div class="sp-val">${p.gp}</div><div class="sp-lbl">GP</div></div>
           ${p.inningsPitched > 0 ? `<div class="stat-pill"><div class="sp-val">${p.inningsPitched.toFixed(1)}</div><div class="sp-lbl">IP</div></div><div class="stat-pill"><div class="sp-val">${era}</div><div class="sp-lbl">ERA</div></div>` : ''}
         </div>`;
@@ -1519,12 +1850,14 @@
           options:{plugins:{datalabels:{formatter:(v)=>totalPos>0?Math.round((v/totalPos)*100)+'%':'',color:'#fff',font:{weight:'bold',size:13}}}},
           plugins:[ChartDataLabels]
         });
+        const soLooking  = p.strikeoutsLooking || 0;
+        const soSwinging = Math.max(0, (p.strikeouts||0) - soLooking);
         const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
-        const totalHitting = (p.homeRuns||0)+singles+(p.walks||0)+(p.strikeouts||0)+otherOuts;
+        const totalHitting = (p.homeRuns||0)+singles+(p.walks||0)+soSwinging+soLooking+otherOuts;
         if (hittingChart) hittingChart.destroy();
         hittingChart = new Chart(document.getElementById("hittingChart"), {
           type:'pie',
-          data:{labels:['HR','Other Hits','Walks','Strikeouts','Ball in Play Outs'],datasets:[{data:[p.homeRuns||0,singles,p.walks||0,p.strikeouts||0,otherOuts],backgroundColor:['#ff3b5c','#00ff87','#00c9ff','#f97316','#334155'],borderWidth:2,borderColor:'#13131a'}]},
+          data:{labels:['HR','Other Hits','Walks','K Swinging','K Looking','Ball in Play Outs'],datasets:[{data:[p.homeRuns||0,singles,p.walks||0,soSwinging,soLooking,otherOuts],backgroundColor:['#ff3b5c','#00ff87','#00c9ff','#f97316','#a855f7','#334155'],borderWidth:2,borderColor:'#13131a'}]},
           options:{plugins:{datalabels:{formatter:(v)=>totalHitting>0?Math.round((v/totalHitting)*100)+'%':'',color:'#fff',font:{weight:'bold',size:13}}}},
           plugins:[ChartDataLabels]
         });
