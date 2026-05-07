@@ -1641,9 +1641,21 @@
       if (!file) return alert("Select CSV file");
       const seasonName = prompt("Season name:", "Spring 2026");
       if (!seasonName) return;
-      Papa.parse(file, {
-        header: true, skipEmptyLines: true,
-        complete: (results) => {
+      // Auto-detect GameChanger's extra "Batting / Pitching" label row
+      // Original GC exports have a section label row before the actual headers
+      // We read the raw text first, strip that row if present, then parse
+      const reader2 = new FileReader();
+      reader2.onload = (e) => {
+        let csvText = e.target.result;
+        // Check if first line contains "Batting" but not "Number" — that's the label row
+        const firstLine = csvText.split('\n')[0];
+        if (firstLine.includes('Batting') && !firstLine.includes('Number')) {
+          // Skip the first line — it's the section label row
+          csvText = csvText.split('\n').slice(1).join('\n');
+        }
+        Papa.parse(csvText, {
+          header: true, skipEmptyLines: true,
+          complete: (results) => {
           const seasonPlayers = results.data.map(row => {
             const first = (row["First"] || row["First name"] || "").trim();
             const last  = (row["Last"]  || row["Last name"]  || "").trim();
@@ -1702,7 +1714,9 @@
           updateSeasonSelector(); loadCurrentView(); saveData();
           alert(`✅ Imported ${seasonPlayers.length} players`);
         }
-      });
+        });
+      };
+      reader2.readAsText(file);
     }
 
     function updateSeasonSelector() {
