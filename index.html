@@ -2016,8 +2016,10 @@
         const bo = p.battingOrder ? "#"+p.battingOrder : "—";
         const cls = avgColor(avg);
         const streak = getStreakInfo(p.name);
+        const streakBg = streak ? (streak.type==='hot' ? 'rgba(255,59,92,0.15)' : 'rgba(0,201,255,0.15)') : '';
+        const streakColor = streak ? (streak.type==='hot' ? '#ff3b5c' : '#00c9ff') : '';
         const streakBadge = streak
-          ? `<span style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:20px;background:${streak.type==='hot'?'rgba(255,59,92,0.15)':'rgba(0,201,255,0.15)'};color:${streak.type==='hot'?'#ff3b5c':'#00c9ff'};margin-left:6px;vertical-align:middle;">${streak.label} ${streak.recent} L${streak.games}</span>`
+          ? '<span style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:20px;background:' + streakBg + ';color:' + streakColor + ';margin-left:6px;vertical-align:middle;">' + streak.label + ' ' + streak.recent + ' L' + streak.games + '</span>'
           : '';
         html += `<div class="player-card" onclick="showProfile(${i})">
           <div class="player-avatar">
