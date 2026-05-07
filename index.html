@@ -9,6 +9,7 @@
   distribution, or use of this code, in whole or in part,
   without express written permission is strictly prohibited.
 
+  Live at: https://assistantcoach.coach
   Built with Claude by Anthropic.
   ============================================================
 -->
@@ -1417,6 +1418,28 @@
       await loadFromFirebase();
     }
 
+    // Handle redirect result from mobile sign-in
+    auth.getRedirectResult().then(result => {
+      // If we got a user from redirect, handleUser will be called via onAuthStateChanged
+    }).catch(error => {
+      if (error.code === 'auth/web-storage-unsupported' ||
+          error.message.includes('missing initial state') ||
+          error.message.includes('Missing initial state')) {
+        // iOS is blocking cross-site cookies needed for redirect auth
+        // Show a helpful message
+        const loginScreen = document.getElementById('loginScreen');
+        if (loginScreen && loginScreen.style.display !== 'none') {
+          const msg = document.createElement('div');
+          msg.style.cssText = 'background:rgba(255,179,71,0.15);border:1px solid #ffb347;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:0.8rem;color:#ffb347;line-height:1.5;';
+          msg.innerHTML = '⚠️ <strong>iOS tip:</strong> If sign-in keeps failing, try opening this page in <strong>Safari</strong> instead of Chrome, or go to Settings → Safari → Privacy → turn off "Prevent Cross-Site Tracking" temporarily.';
+          const btn = document.querySelector('.btn-google');
+          if (btn) btn.parentNode.insertBefore(msg, btn);
+        }
+      } else if (error.code !== 'auth/no-auth-event') {
+        console.warn("Redirect sign-in error:", error.message);
+      }
+    });
+
     // On load: check if this is a share link visit FIRST
     // If it is, load viewer data without requiring sign-in
     checkForShareCode().then(async (isShare) => {
@@ -1434,11 +1457,21 @@
     function signIn() {
       const provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      auth.signInWithPopup(provider)
-        .catch((error) => {
-          if (error.code === 'auth/popup-blocked') alert("Popup blocked — please allow popups for this site.");
-          else if (error.code !== 'auth/popup-closed-by-user') alert("Sign-in error: " + error.message);
-        });
+      // Use redirect on mobile/iOS (popup blocked by Safari), popup on desktop
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        auth.signInWithRedirect(provider);
+      } else {
+        auth.signInWithPopup(provider)
+          .catch((error) => {
+            if (error.code === 'auth/popup-blocked') {
+              // Fall back to redirect if popup is blocked
+              auth.signInWithRedirect(provider);
+            } else if (error.code !== 'auth/popup-closed-by-user') {
+              alert("Sign-in error: " + error.message);
+            }
+          });
+      }
     }
     function signOut() { auth.signOut(); }
 
