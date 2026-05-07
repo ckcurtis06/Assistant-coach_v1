@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!--
   ============================================================
@@ -1308,6 +1309,16 @@
         ]);
         if (teamsDoc.exists)   allTeams = teamsDoc.data().teams || {};
         if (lineupsDoc.exists) allLineupGames = lineupsDoc.data().lineupGames || {};
+        // Load saved lineups from Firebase
+        try {
+          const savedDoc = await userPath().collection("coachData").doc("savedLineups").get();
+          if (savedDoc.exists) {
+            savedLineups = savedDoc.data().savedLineups || [];
+            savedDefLineups = savedDoc.data().savedDefLineups || [];
+            localStorage.setItem('AC_SavedLineups', JSON.stringify(savedLineups));
+            localStorage.setItem('AC_SavedDefLineups', JSON.stringify(savedDefLineups));
+          }
+        } catch(e) { console.warn("Could not load saved lineups:", e); }
       } catch(e) {
         console.error("Viewer data load error:", e);
       }
@@ -1562,6 +1573,8 @@
       catch(e) { console.warn("Firebase teams save failed:", e); }
       try { await userPath().collection("coachData").doc("lineups").set({ lineupGames: allLineupGames, updatedAt: new Date().toISOString() }); }
       catch(e) { console.warn("Firebase lineups save failed:", e); }
+      try { await userPath().collection("coachData").doc("savedLineups").set({ savedLineups, savedDefLineups, updatedAt: new Date().toISOString() }); }
+      catch(e) { console.warn("Firebase savedLineups save failed:", e); }
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ teams: allTeams, lineupGames: allLineupGames }));
     }
 
@@ -1771,6 +1784,49 @@
       return name.slice(0,2).toUpperCase();
     }
 
+    function getStreakInfo(playerName) {
+      // Get last 3 games this player appeared in from box scores
+      const games = getLineupGames();
+      if (!games.length) return null;
+
+      const playerGames = [];
+      games.forEach(game => {
+        if (!game.lineup) return;
+        game.lineup.forEach((name, idx) => {
+          const nParts = name.split(' ');
+          const nInitial = nParts[0];
+          const nLast = nParts.slice(1).join(' ').replace(/\.+$/, '');
+          const pParts = playerName.split(' ');
+          const pInitial = pParts[0];
+          const pLast = pParts.slice(1).join(' ').replace(/\.+$/, '');
+          const minLen = Math.min(pLast.length, nLast.length);
+          const match = name === playerName ||
+            (nInitial === pInitial && minLen >= 4 && pLast.substring(0,minLen) === nLast.substring(0,minLen));
+          if (match && game.stats && game.stats[idx]) {
+            playerGames.push(game.stats[idx]);
+          }
+        });
+      });
+
+      if (playerGames.length < 2) return null; // need at least 2 games
+
+      // Calculate recent (last 3) vs overall avg
+      const recent = playerGames.slice(-3);
+      const recentAB = recent.reduce((s,g) => s + (g.ab||0), 0);
+      const recentH  = recent.reduce((s,g) => s + (g.h||0), 0);
+      if (recentAB < 3) return null; // not enough recent AB
+
+      const recentAvg = recentH / recentAB;
+      const allAB = playerGames.reduce((s,g) => s + (g.ab||0), 0);
+      const allH  = playerGames.reduce((s,g) => s + (g.h||0), 0);
+      const overallAvg = allAB > 0 ? allH / allAB : 0;
+
+      const diff = recentAvg - overallAvg;
+      if (diff >= 0.100) return { type: 'hot', label: '🔥 Hot', color: '#ff3b5c', recent: recentAvg.toFixed(3), games: recent.length };
+      if (diff <= -0.100) return { type: 'cold', label: '❄️ Cold', color: '#00c9ff', recent: recentAvg.toFixed(3), games: recent.length };
+      return null;
+    }
+
     function renderRoster() {
       const container = document.getElementById("playerList");
       if (!players.length) {
@@ -1791,13 +1847,17 @@
         const kPct = p.atBats ? ((p.strikeouts/p.atBats)*100).toFixed(0)+"%" : "—";
         const bo = p.battingOrder ? "#"+p.battingOrder : "—";
         const cls = avgColor(avg);
+        const streak = getStreakInfo(p.name);
+        const streakBadge = streak
+          ? `<span style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:20px;background:${streak.type==='hot'?'rgba(255,59,92,0.15)':'rgba(0,201,255,0.15)'};color:${streak.type==='hot'?'#ff3b5c':'#00c9ff'};margin-left:6px;vertical-align:middle;">${streak.label} ${streak.recent} L${streak.games}</span>`
+          : '';
         html += `<div class="player-card" onclick="showProfile(${i})">
           <div class="player-avatar">
             <div class="avatar-initials">${getInitials(p.name)}</div>
             <div class="avatar-number">#${p.number}</div>
           </div>
           <div class="player-info">
-            <div class="player-name">${p.name}</div>
+            <div class="player-name">${p.name}${streakBadge}</div>
             <div class="player-meta">GP: ${p.gp} &nbsp;·&nbsp; BO: ${bo} &nbsp;·&nbsp; K%: ${kPct}</div>
             <div class="player-stats-row">
               <div class="pstat"><span class="pval ${cls}">${avg}</span><span class="plbl">AVG</span></div>
@@ -2417,14 +2477,11 @@
       html += `</div>
         ${isOwner ? `<div class="lineup-action-bar">
           <button class="btn btn-primary" onclick="saveCurrentLineup()" style="flex:1;">💾 Save</button>
-          <button class="btn btn-secondary" onclick="toggleShareText()" style="flex:1;">📤 Share</button>
+          <button class="btn btn-secondary" onclick="copyShareText()" style="flex:1;">📤 Copy Lineup</button>
           <button class="btn btn-secondary" onclick="resetLineup()" style="flex:1;" title="Re-sort current players using selected strategy">↺ Re-sort</button>
         </div>` : ''}`;
 
-      if (showShareText) {
-        html += `<div class="share-text-box">${generateShareText()}</div>
-          <button class="btn btn-secondary btn-full" onclick="copyShareText()" style="margin-top:8px;">📋 Copy to Clipboard</button>`;
-      }
+
 
       if (savedLineups.length > 0) {
         html += `<div class="saved-lineups-section">
@@ -2824,13 +2881,81 @@
       return `${innings} innings at ${pos}`;
     }
 
+    let defSubTab = 0; // 0=builder, 1=position tracker
+
     function renderDefense() {
       const container = document.getElementById("defenseContainer");
       if (!players || !players.length) {
         container.innerHTML = `<div class="content"><div class="empty-state"><div class="empty-icon">🛡️</div><p>No player data yet.<br>Import a CSV to use the Defense Builder.</p></div></div>`;
         return;
       }
-      container.innerHTML = `<div class="content">${generateDefenseBuilderHTML()}</div>`;
+      const subTabs = `<div class="sub-tabs" style="margin:12px 16px 0;">
+        <button class="sub-tab ${defSubTab===0?'active':''}" onclick="switchDefSubTab(0)">🧠 Builder</button>
+        <button class="sub-tab ${defSubTab===1?'active':''}" onclick="switchDefSubTab(1)">📊 Position Tracker</button>
+      </div>`;
+      if (defSubTab === 0) {
+        container.innerHTML = `<div class="content">${subTabs}${generateDefenseBuilderHTML()}</div>`;
+      } else {
+        container.innerHTML = `<div class="content">${subTabs}${generateDefPositionTrackerHTML()}</div>`;
+      }
+    }
+
+    function switchDefSubTab(n) {
+      defSubTab = n;
+      renderDefense();
+    }
+
+    function generateDefPositionTrackerHTML() {
+      const positions = ['P','C','1B','2B','3B','SS','LF','CF','RF'];
+      const posKeys = { P:'posP',C:'posC','1B':'pos1B','2B':'pos2B','3B':'pos3B',SS:'posSS',LF:'posLF',CF:'posCF',RF:'posRF' };
+      const posIcons = { P:'⚾',C:'🎯','1B':'1️⃣','2B':'2️⃣','3B':'3️⃣',SS:'⭐',LF:'👈',CF:'🔭',RF:'👉' };
+
+      let html = `<div class="section-header" style="margin-top:12px;">
+        <span class="section-title">POSITION TRACKER</span>
+        <span class="section-badge">${players.length} Players</span>
+      </div>
+      <p style="font-size:0.75rem;color:var(--muted);margin-bottom:12px;">Based on innings played from CSV data. Green = primary, Amber = secondary, Gray = limited.</p>
+      <div class="table-wrap" style="max-height:calc(100vh - 280px);">
+        <table><thead><tr>
+          <th style="text-align:left;padding-left:14px;min-width:120px;">Player</th>`;
+
+      positions.forEach(pos => {
+        html += `<th>${posIcons[pos]}<br>${pos}</th>`;
+      });
+      html += `</tr></thead><tbody>`;
+
+      // Sort players by total defensive innings
+      const sorted = [...players].sort((a,b) => {
+        const totA = positions.reduce((s,p) => s+(a[posKeys[p]]||0), 0);
+        const totB = positions.reduce((s,p) => s+(b[posKeys[p]]||0), 0);
+        return totB - totA;
+      });
+
+      sorted.forEach(p => {
+        const total = positions.reduce((s,pos) => s+(p[posKeys[pos]]||0), 0) || 1;
+        html += `<tr>
+          <td style="text-align:left;padding-left:14px;font-weight:700;white-space:nowrap;">
+            #${p.number} ${p.name}
+          </td>`;
+        positions.forEach(pos => {
+          const inn = p[posKeys[pos]] || 0;
+          const pct = Math.round((inn/total)*100);
+          const bgColor = pct >= 30 ? 'rgba(0,255,135,0.08)' : pct >= 10 ? 'rgba(255,179,71,0.06)' : 'transparent';
+          const textColor = pct >= 30 ? 'var(--accent)' : pct >= 10 ? 'var(--warn)' : 'var(--muted)';
+          html += `<td style="background:${bgColor};">`;
+          if (inn > 0) {
+            html += `<div style="font-family:var(--font-display);font-size:0.95rem;color:${textColor};line-height:1;">${pct}%</div>
+              <div style="font-size:0.65rem;color:var(--muted);">${inn.toFixed(1)}inn</div>`;
+          } else {
+            html += `<span style="color:var(--border);">—</span>`;
+          }
+          html += `</td>`;
+        });
+        html += `</tr>`;
+      });
+
+      html += `</tbody></table></div>`;
+      return html;
     }
 
     function generateDefenseBuilderHTML() {
@@ -2981,14 +3106,11 @@
       html += `</div>
         ${isOwner ? `<div class="lineup-action-bar">
           <button class="btn btn-primary" onclick="saveDefLineup()" style="flex:1;">💾 Save</button>
-          <button class="btn btn-secondary" onclick="toggleDefShare()" style="flex:1;">📤 Share</button>
+          <button class="btn btn-secondary" onclick="copyDefShare()" style="flex:1;">📤 Copy Defense</button>
           <button class="btn btn-secondary" onclick="resetDefense()" style="flex:1;">↺ Re-sort</button>
         </div>` : ''}`;
 
-      if (showDefShare) {
-        html += `<div class="share-text-box">${generateDefShareText()}</div>
-          <button class="btn btn-secondary btn-full" onclick="copyDefShare()" style="margin-top:8px;">📋 Copy to Clipboard</button>`;
-      }
+
 
       // Saved defense lineups
       if (savedDefLineups.length > 0) {
@@ -3132,6 +3254,7 @@
         )
       });
       localStorage.setItem('AC_SavedDefLineups', JSON.stringify(savedDefLineups));
+      saveData(); // sync to Firebase
       renderDefense();
       alert('✅ Defense saved!');
     }
@@ -3194,6 +3317,7 @@
       };
       savedLineups.push(entry);
       localStorage.setItem('AC_SavedLineups', JSON.stringify(savedLineups));
+      saveData(); // sync to Firebase
       renderLineupTracker();
       alert('✅ Lineup saved!');
     }
