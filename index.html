@@ -1661,6 +1661,32 @@
               walks: parseInt(row["BB"]||0), homeRuns: parseInt(row["HR"]||0), rbis: parseInt(row["RBI"]||0),
               strikeouts: parseInt(row["SO"]||0), strikeoutsLooking: parseInt(row["K-L"]||0), inningsPitched: parseFloat(row["IP"]||0),
               earnedRuns: parseInt(row["ER"]||0), battingOrder: parseInt(row["BO"]||0),
+              // ── PITCHING ──
+              // Pitching stats — GameChanger duplicates column names for batting/pitching
+              // PapaParse renames duplicates: GP→GP_1, H→H_1, R→R_1, BB→BB_1, SO→SO_1, K-L→K-L_1, HBP→HBP_1
+              pitchGP: parseInt(row["GP_1"]||0),
+              pitchGS: parseInt(row["GS"]||0),
+              pitchBF: parseInt(row["BF"]||0),
+              pitchCount: parseInt(row["#P"]||0),
+              pitchW: parseInt(row["W"]||0),
+              pitchL: parseInt(row["L"]||0),
+              pitchSV: parseInt(row["SV"]||0),
+              pitchH: parseInt(row["H_1"]||0),
+              pitchR: parseInt(row["R_1"]||0),
+              pitchBB: parseInt(row["BB_1"]||0),
+              pitchSO: parseInt(row["SO_1"]||0),
+              pitchKL: parseInt(row["K-L_1"]||0),
+              pitchHBP: parseInt(row["HBP_1"]||0),
+              pitchWP: parseInt(row["WP"]||0),
+              pitchBAA: parseFloat(row["BAA"]||0),
+              pitchFIP: parseFloat(row["FIP"]||0),
+              pitchKBB: parseFloat(row["K/BB"]||0),
+              pitchKBF: parseFloat(row["K/BF"]||0),
+              pitchFPS: parseFloat(row["FPS%"]||0),
+              pitchSM: parseFloat(row["SM%"]||0),
+              pitchPIP: parseFloat(row["P/IP"]||0),
+              pitchGOAO: parseFloat(row["GO/AO"]||0),
+              pitchMPHFB: parseFloat(row["MPHFB"]||0),
               posP: parseFloat(row["DEF_P"]||0), posC: parseFloat(row["DEF_C"]||0),
               pos1B: parseFloat(row["DEF_1B"]||0), pos2B: parseFloat(row["DEF_2B"]||0),
               pos3B: parseFloat(row["DEF_3B"]||0), posSS: parseFloat(row["DEF_SS"]||0),
@@ -1704,6 +1730,142 @@
       updateSeasonSelector(); loadCurrentView();
     }
 
+    function generatePitchingTableHTML() {
+      const pitchers = players.filter(p => p.inningsPitched > 0)
+        .sort((a,b) => {
+          const eraA = a.inningsPitched>0?(a.earnedRuns*7/a.inningsPitched):99;
+          const eraB = b.inningsPitched>0?(b.earnedRuns*7/b.inningsPitched):99;
+          return eraA-eraB;
+        });
+      if (!pitchers.length) return `<div class="empty-state"><div class="empty-icon">⚾</div><p>No pitching data yet.<br>Import a CSV with IP > 0.</p></div>`;
+      const cols = ['#','Pitcher','IP','ERA','WHIP','W','L','SV','K','BB','K/BB','BF','#P','BAA','FPS%','SM%','FIP','H','R','HBP','WP'];
+      let html = `<div class="section-header"><span class="section-title">PITCHING STATS</span><span class="section-badge">${pitchers.length} Pitchers</span></div>
+        <div class="table-wrap" style="max-height:calc(100vh - 260px);"><table><thead><tr>`;
+      cols.forEach(col => { html += `<th>${col}</th>`; });
+      html += `</tr></thead><tbody>`;
+      pitchers.forEach(p => {
+        const era  = p.inningsPitched>0?(p.earnedRuns*7/p.inningsPitched).toFixed(2):'—';
+        const whip = p.inningsPitched>0?((p.pitchH+p.pitchBB)/p.inningsPitched).toFixed(2):'—';
+        const kbb  = p.pitchBB>0?(p.pitchSO/p.pitchBB).toFixed(2):'—';
+        const fps  = p.pitchFPS>0?(p.pitchFPS*100).toFixed(0)+'%':'—';
+        const sm   = p.pitchSM>0?(p.pitchSM*100).toFixed(0)+'%':'—';
+        const baa  = p.pitchBAA>0?p.pitchBAA.toFixed(3):'—';
+        const fip  = p.pitchFIP>0?p.pitchFIP.toFixed(2):'—';
+        const eraNum = parseFloat(era);
+        const eraCls = !isNaN(eraNum)?(eraNum<3?'td-avg-good':eraNum<5?'td-avg-ok':'td-avg-low'):'';
+        html += `<tr>
+          <td>#${p.number}</td><td class="td-name">${p.name}</td>
+          <td>${p.inningsPitched.toFixed(1)}</td>
+          <td class="${eraCls}">${era}</td><td>${whip}</td>
+          <td>${p.pitchW||0}</td><td>${p.pitchL||0}</td><td>${p.pitchSV||0}</td>
+          <td>${p.pitchSO||0}</td><td>${p.pitchBB||0}</td><td>${kbb}</td>
+          <td>${p.pitchBF||0}</td><td>${p.pitchCount||0}</td>
+          <td>${baa}</td><td>${fps}</td><td>${sm}</td><td>${fip}</td>
+          <td>${p.pitchH||0}</td><td>${p.pitchR||0}</td>
+          <td>${p.pitchHBP||0}</td><td>${p.pitchWP||0}</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+      return html;
+    }
+
+    function generateRotationTrackerHTML() {
+      const games = getLineupGames();
+      const pitchers = players.filter(p => p.inningsPitched>0)
+        .sort((a,b)=>(b.inningsPitched||0)-(a.inningsPitched||0));
+      if (!pitchers.length) return `<div class="empty-state"><div class="empty-icon">🔄</div><p>No pitchers found.<br>Import a CSV with IP > 0.</p></div>`;
+
+      let html = `<div class="section-header"><span class="section-title">PITCHING ROTATION</span><span class="section-badge">${pitchers.length} Pitchers</span></div>`;
+
+      // Pitch counter widget
+      html += renderPitchCounter();
+
+      // Season summary
+      html += `<div class="table-wrap" style="max-height:calc(35vh - 60px);margin-bottom:12px;">
+        <table><thead><tr>
+          <th style="text-align:left;padding-left:14px;">Pitcher</th>
+          <th>IP</th><th>GS</th><th>Apps</th><th>#P</th><th>P/IP</th><th>ERA</th><th>K</th><th>BB</th><th>W-L-SV</th>
+        </tr></thead><tbody>`;
+      pitchers.forEach(p => {
+        const era = p.inningsPitched>0?(p.earnedRuns*7/p.inningsPitched).toFixed(2):'—';
+        const pip = p.pitchPIP>0?p.pitchPIP.toFixed(1):(p.pitchCount&&p.inningsPitched?(p.pitchCount/p.inningsPitched).toFixed(1):'—');
+        const eraNum = parseFloat(era);
+        const eraCls = !isNaN(eraNum)?(eraNum<3?'td-avg-good':eraNum<5?'td-avg-ok':'td-avg-low'):'';
+        html += `<tr>
+          <td style="text-align:left;padding-left:14px;font-weight:700;">#${p.number} ${p.name}</td>
+          <td>${p.inningsPitched.toFixed(1)}</td><td>${p.pitchGS||0}</td><td>${p.pitchGP||0}</td>
+          <td>${p.pitchCount||0}</td><td>${pip}</td>
+          <td class="${eraCls}">${era}</td>
+          <td>${p.pitchSO||0}</td><td>${p.pitchBB||0}</td>
+          <td>${p.pitchW||0}-${p.pitchL||0}-${p.pitchSV||0}</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+
+      // Per-game log
+      if (games.length>0) {
+        html += `<div class="section-header" style="margin-top:8px;"><span class="section-title" style="font-size:1rem;">GAME LOG</span><span class="section-badge">${games.length} Games</span></div>
+          <p style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;">⚾ = appeared in box score</p>
+          <div class="table-wrap" style="max-height:calc(30vh - 40px);">
+            <table><thead><tr><th>Game</th>`;
+        pitchers.forEach(p => { html += `<th style="font-size:0.65rem;">${p.name.split(' ')[0][0]}.${p.name.split(' ').slice(1).join(' ')}</th>`; });
+        html += `</tr></thead><tbody>`;
+        games.forEach((game, gi) => {
+          html += `<tr><td style="font-weight:700;">G${gi+1}</td>`;
+          pitchers.forEach(p => {
+            let appeared = false;
+            if (game.lineup) game.lineup.forEach(name => {
+              const nP=name.split(' '), pP=p.name.split(' ');
+              const nL=nP.slice(1).join(' '), pL=pP.slice(1).join(' ');
+              const ml=Math.min(nL.length,pL.length);
+              if (nP[0]===pP[0]&&ml>=4&&nL.substring(0,ml)===pL.substring(0,ml)) appeared=true;
+            });
+            html += `<td style="background:${appeared?'rgba(0,255,135,0.1)':'transparent'};color:${appeared?'var(--accent)':'var(--border)'};">${appeared?'⚾':'—'}</td>`;
+          });
+          html += `</tr>`;
+        });
+        html += `</tbody></table></div>`;
+      } else {
+        html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;color:var(--muted);font-size:0.85rem;margin-top:8px;">Upload box score photos to see the per-game rotation log.</div>`;
+      }
+      return html;
+    }
+
+    // ── LIVE PITCH COUNT TRACKER ──
+    let pitchCounts = {};
+
+    function renderPitchCounter() {
+      const activePitchers = players.filter(p => p.inningsPitched>0||p.posP>0);
+      if (!activePitchers.length) return '';
+      let html = `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;">
+        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);margin-bottom:10px;">🎯 Live Pitch Counter</div>`;
+      activePitchers.forEach(p => {
+        if (!pitchCounts[p.name]) pitchCounts[p.name]={count:0};
+        const cnt = pitchCounts[p.name].count;
+        const cc = cnt>=85?'var(--danger)':cnt>=65?'var(--warn)':'var(--accent)';
+        const safeName = p.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="flex:1;font-weight:700;font-size:0.9rem;">#${p.number} ${p.name}</div>
+          <button onclick="pitchCountAdj('${safeName}',-1)" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;width:36px;height:36px;font-size:1.2rem;cursor:pointer;min-height:unset;color:var(--muted);">−</button>
+          <div style="font-family:var(--font-display);font-size:2rem;color:${cc};min-width:52px;text-align:center;line-height:1;">${cnt}</div>
+          <button onclick="pitchCountAdj('${safeName}',1)" style="background:var(--accent);border:none;border-radius:8px;width:36px;height:36px;font-size:1.2rem;cursor:pointer;min-height:unset;color:#000;font-weight:bold;">+</button>
+          <button onclick="pitchCountReset('${safeName}')" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0 10px;height:36px;font-size:0.72rem;cursor:pointer;min-height:unset;color:var(--muted);">Reset</button>
+        </div>`;
+      });
+      html += `</div>`;
+      return html;
+    }
+
+    function pitchCountAdj(name,delta) {
+      if (!pitchCounts[name]) pitchCounts[name]={count:0};
+      pitchCounts[name].count = Math.max(0, pitchCounts[name].count+delta);
+      renderStatsTab();
+    }
+    function pitchCountReset(name) {
+      if (pitchCounts[name]) pitchCounts[name].count=0;
+      renderStatsTab();
+    }
+
     function removeCurrentTeam() {
       if (!currentTeam || !confirm(`Delete team ${currentTeam}?`)) return;
       delete allTeams[currentTeam]; delete allLineupGames[currentTeam];
@@ -1724,9 +1886,13 @@
         const map = {};
         Object.values(teamSeasons).flat().forEach(p => {
           const key = p.mergeKey || p.name.toLowerCase();
-          if (!map[key]) map[key] = {...p, gp:0,atBats:0,hits:0,walks:0,homeRuns:0,rbis:0,strikeouts:0,inningsPitched:0,earnedRuns:0};
+          if (!map[key]) map[key] = {...p, gp:0,atBats:0,hits:0,walks:0,homeRuns:0,rbis:0,strikeouts:0,inningsPitched:0,earnedRuns:0,
+            pitchGP:0,pitchGS:0,pitchBF:0,pitchCount:0,pitchW:0,pitchL:0,pitchSV:0,
+            pitchH:0,pitchR:0,pitchBB:0,pitchSO:0,pitchHBP:0,pitchWP:0};
           const t = map[key];
           ["gp","atBats","hits","walks","homeRuns","rbis","strikeouts","strikeoutsLooking","inningsPitched","earnedRuns",
+           "pitchGP","pitchGS","pitchBF","pitchCount","pitchW","pitchL","pitchSV",
+           "pitchH","pitchR","pitchBB","pitchSO","pitchHBP","pitchWP",
            "posP","posC","pos1B","pos2B","pos3B","posSS","posLF","posCF","posRF"]
            .forEach(k => { t[k] = (t[k]||0) + (p[k]||0); });
         });
@@ -1900,7 +2066,26 @@
           <div class="stat-pill"><div class="sp-val">${p.strikeoutsLooking||0}</div><div class="sp-lbl">K-L</div></div>
           <div class="stat-pill"><div class="sp-val">${Math.max(0,(p.strikeouts||0)-(p.strikeoutsLooking||0))}</div><div class="sp-lbl">K-Sw</div></div>
           <div class="stat-pill"><div class="sp-val">${p.gp}</div><div class="sp-lbl">GP</div></div>
-          ${p.inningsPitched > 0 ? `<div class="stat-pill"><div class="sp-val">${p.inningsPitched.toFixed(1)}</div><div class="sp-lbl">IP</div></div><div class="stat-pill"><div class="sp-val">${era}</div><div class="sp-lbl">ERA</div></div>` : ''}
+          ${p.inningsPitched > 0 ? `
+          </div>
+          <div style="margin:16px 0 8px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);border-top:1px solid var(--border);padding-top:14px;">⚾ Pitching</div>
+          <div class="stat-pills">
+            <div class="stat-pill"><div class="sp-val">${p.inningsPitched.toFixed(1)}</div><div class="sp-lbl">IP</div></div>
+            <div class="stat-pill"><div class="sp-val">${era}</div><div class="sp-lbl">ERA</div></div>
+            <div class="stat-pill"><div class="sp-val">${whip}</div><div class="sp-lbl">WHIP</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchW||0}-${p.pitchL||0}</div><div class="sp-lbl">W-L</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchSV||0}</div><div class="sp-lbl">SV</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchSO||0}</div><div class="sp-lbl">K</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchBB||0}</div><div class="sp-lbl">BB</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchBF||0}</div><div class="sp-lbl">BF</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchCount||0}</div><div class="sp-lbl">#P</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchBAA?p.pitchBAA.toFixed(3):'—'}</div><div class="sp-lbl">BAA</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchFPS?(p.pitchFPS*100).toFixed(0)+'%':'—'}</div><div class="sp-lbl">FPS%</div></div>
+            <div class="stat-pill"><div class="sp-val">${p.pitchSM?(p.pitchSM*100).toFixed(0)+'%':'—'}</div><div class="sp-lbl">SM%</div></div>
+            ${p.pitchMPHFB>0?`<div class="stat-pill"><div class="sp-val">${p.pitchMPHFB.toFixed(1)}</div><div class="sp-lbl">FB MPH</div></div>`:''}
+            ${p.pitchKBB>0?`<div class="stat-pill"><div class="sp-val">${p.pitchKBB.toFixed(2)}</div><div class="sp-lbl">K/BB</div></div>`:''}
+            ${p.pitchFIP>0?`<div class="stat-pill"><div class="sp-val">${p.pitchFIP.toFixed(2)}</div><div class="sp-lbl">FIP</div></div>`:''}
+          <div style="display:none;">` : ''}
         </div>`;
 
       document.getElementById("playerModal").style.display = "block";
@@ -1923,7 +2108,43 @@
         });
         const soLooking  = p.strikeoutsLooking || 0;
         const soSwinging = Math.max(0, (p.strikeouts||0) - soLooking);
-        const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
+        // ── PITCHING PIE CHART ──
+      if (p.inningsPitched > 0) {
+        const pitchSO = p.pitchSO || 0;
+        const pitchBB = p.pitchBB || 0;
+        const pitchH  = p.pitchH  || 0;
+        const pitchBF = p.pitchBF || 0;
+        const pitchOtherOuts = Math.max(0, pitchBF - pitchSO - pitchBB - pitchH);
+        const pitchTotal = pitchSO + pitchBB + pitchH + pitchOtherOuts;
+
+        // Add a third chart box for pitching if player is a pitcher
+        const chartsDiv = document.querySelector('.charts-row');
+        if (chartsDiv && pitchTotal > 0) {
+          const pitchBox = document.createElement('div');
+          pitchBox.className = 'chart-box';
+          pitchBox.innerHTML = '<h4>Pitching Breakdown</h4><canvas id="pitchingChart"></canvas>';
+          chartsDiv.appendChild(pitchBox);
+
+          setTimeout(() => {
+            const pCtx = document.getElementById('pitchingChart');
+            if (pCtx) {
+              new Chart(pCtx, {
+                type: 'pie',
+                data: {
+                  labels: ['Strikeouts', 'Walks', 'Hits Allowed', 'Other Outs'],
+                  datasets: [{ data: [pitchSO, pitchBB, pitchH, pitchOtherOuts],
+                    backgroundColor: ['#00ff87','#ff3b5c','#f97316','#334155'],
+                    borderWidth: 2, borderColor: '#13131a' }]
+                },
+                options: { plugins: { datalabels: { formatter: (v) => pitchTotal>0?Math.round((v/pitchTotal)*100)+'%':'', color:'#fff', font:{weight:'bold',size:13}}}},
+                plugins: [ChartDataLabels]
+              });
+            }
+          }, 350);
+        }
+      }
+
+      const otherOuts = Math.max(0, p.atBats - p.hits - p.strikeouts);
         const totalHitting = (p.homeRuns||0)+singles+(p.walks||0)+soSwinging+soLooking+otherOuts;
         if (hittingChart) hittingChart.destroy();
         hittingChart = new Chart(document.getElementById("hittingChart"), {
@@ -1940,15 +2161,38 @@
       document.body.style.overflow = "";
     }
 
+    let statsSubTab = 0; // 0=batting, 1=pitching, 2=rotation
+
     function switchTab(n) {
       for (let i=0; i<4; i++) { const el = document.getElementById("nav"+i); if(el) el.classList.toggle("active", i===n); }
       document.getElementById("playerList").style.display             = n===0 ? "block" : "none";
       document.getElementById("teamTableContainer").style.display     = n===1 ? "block" : "none";
       document.getElementById("lineupTrackerContainer").style.display = n===2 ? "block" : "none";
       document.getElementById("defenseContainer").style.display       = n===3 ? "block" : "none";
-      if (n===1) renderTeamTable();
+      if (n===1) renderStatsTab();
       if (n===2) renderLineupTracker();
       if (n===3) renderDefense();
+    }
+
+    function switchStatsSubTab(n) {
+      statsSubTab = n;
+      renderStatsTab();
+    }
+
+    function renderStatsTab() {
+      const container = document.getElementById("teamTableContainer");
+      const subTabs = `<div class="sub-tabs">
+        <button class="sub-tab ${statsSubTab===0?'active':''}" onclick="switchStatsSubTab(0)">⚾ Batting</button>
+        <button class="sub-tab ${statsSubTab===1?'active':''}" onclick="switchStatsSubTab(1)">🏏 Pitching</button>
+        <button class="sub-tab ${statsSubTab===2?'active':''}" onclick="switchStatsSubTab(2)">🔄 Rotation</button>
+      </div>`;
+      if (statsSubTab === 0) {
+        container.innerHTML = subTabs + generateBattingTableHTML();
+      } else if (statsSubTab === 1) {
+        container.innerHTML = subTabs + generatePitchingTableHTML();
+      } else {
+        container.innerHTML = subTabs + generateRotationTrackerHTML();
+      }
     }
 
     function sortTable(colIndex) {
@@ -1980,10 +2224,9 @@
       renderTeamTable();
     }
 
-    function renderTeamTable() {
-      const container = document.getElementById("teamTableContainer");
+    function generateBattingTableHTML() {
       const cols = ['#','Player','GP','AVG','H','SLG','OBP','OPS','BO','HR','RBI','BB','BB%','SO','K%','IP','ERA','WHIP','P%','C%','1B%','2B%','3B%','SS%','LF%','CF%','RF%'];
-      let html = `<div class="section-header"><span class="section-title">TEAM STATS</span><span class="section-badge">${currentView}</span></div>
+      let html = `<div class="section-header"><span class="section-title">BATTING STATS</span><span class="section-badge">${currentView}</span></div>
         <div class="table-wrap"><table><thead><tr>`;
       cols.forEach((col,i) => {
         let cls = currentSort.col===i ? (currentSort.dir===1?'sort-asc':'sort-desc') : '';
@@ -2016,7 +2259,12 @@
         </tr>`;
       });
       html += `</tbody></table></div>`;
-      container.innerHTML = html;
+      return html;
+    }
+
+    function renderTeamTable() {
+      // Legacy call — redirect to new stats tab renderer
+      renderStatsTab();
     }
 
     // ── BOX SCORES ──
