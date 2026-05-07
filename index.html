@@ -1804,32 +1804,7 @@
       });
       html += `</tbody></table></div>`;
 
-      // Per-game log
-      if (games.length>0) {
-        html += `<div class="section-header" style="margin-top:8px;"><span class="section-title" style="font-size:1rem;">GAME LOG</span><span class="section-badge">${games.length} Games</span></div>
-          <p style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;">⚾ = appeared in box score</p>
-          <div class="table-wrap" style="max-height:calc(30vh - 40px);">
-            <table><thead><tr><th>Game</th>`;
-        pitchers.forEach(p => { html += `<th style="font-size:0.65rem;">${p.name.split(' ')[0][0]}.${p.name.split(' ').slice(1).join(' ')}</th>`; });
-        html += `</tr></thead><tbody>`;
-        games.forEach((game, gi) => {
-          html += `<tr><td style="font-weight:700;">G${gi+1}</td>`;
-          pitchers.forEach(p => {
-            let appeared = false;
-            if (game.lineup) game.lineup.forEach(name => {
-              const nP=name.split(' '), pP=p.name.split(' ');
-              const nL=nP.slice(1).join(' '), pL=pP.slice(1).join(' ');
-              const ml=Math.min(nL.length,pL.length);
-              if (nP[0]===pP[0]&&ml>=4&&nL.substring(0,ml)===pL.substring(0,ml)) appeared=true;
-            });
-            html += `<td style="background:${appeared?'rgba(0,255,135,0.1)':'transparent'};color:${appeared?'var(--accent)':'var(--border)'};">${appeared?'⚾':'—'}</td>`;
-          });
-          html += `</tr>`;
-        });
-        html += `</tbody></table></div>`;
-      } else {
-        html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;color:var(--muted);font-size:0.85rem;margin-top:8px;">Upload box score photos to see the per-game rotation log.</div>`;
-      }
+
       return html;
     }
 
