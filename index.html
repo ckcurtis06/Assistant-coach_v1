@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!--
   ============================================================
@@ -1384,6 +1385,13 @@
         document.getElementById("loginScreen").style.display = "none";
         document.getElementById("appContent").style.display = "block";
       } else {
+        // Only show login screen if we're not in the middle of a redirect
+        // Firebase stores a key in localStorage during redirect flow
+        const pendingRedirect = Object.keys(localStorage).some(k => 
+          k.includes('firebase') && k.includes('redirect')
+        );
+        if (pendingRedirect) return; // wait for redirect to complete
+        
         isOwner = false;
         currentUser = null;
         allTeams = {}; allLineupGames = {}; players = []; currentTeam = "";
