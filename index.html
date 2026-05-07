@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!--
   ============================================================
@@ -1361,6 +1362,8 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    // Force localStorage persistence — fixes iOS Safari/Chrome cookie blocking
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn("Persistence:", e));
     const db   = firebase.firestore();
     let currentUser = null;
     let isOwner = false; // true whenever any user is signed in
@@ -1457,21 +1460,8 @@
     function signIn() {
       const provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      // Use redirect on mobile/iOS (popup blocked by Safari), popup on desktop
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        auth.signInWithRedirect(provider);
-      } else {
-        auth.signInWithPopup(provider)
-          .catch((error) => {
-            if (error.code === 'auth/popup-blocked') {
-              // Fall back to redirect if popup is blocked
-              auth.signInWithRedirect(provider);
-            } else if (error.code !== 'auth/popup-closed-by-user') {
-              alert("Sign-in error: " + error.message);
-            }
-          });
-      }
+      // Always use redirect — most reliable across all browsers and devices
+      auth.signInWithRedirect(provider);
     }
     function signOut() { auth.signOut(); }
 
