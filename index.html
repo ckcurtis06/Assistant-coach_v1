@@ -2236,7 +2236,7 @@
       // Build strategy cards
       let html = `<div class="strategy-grid">`;
       strategies.forEach(s => {
-        html += `<div class="strategy-card ${selectedStrategy===s.id?'selected':''}" onclick="selectStrategy('${s.id}')">
+        html += `<div class="strategy-card ${selectedStrategy===s.id?'selected':''}" ${isOwner?`onclick="selectStrategy('${s.id}')"`:'style="cursor:default;"'}>
           <div class="strategy-icon">${s.icon}</div>
           <div class="strategy-name">${s.name}</div>
           <div class="strategy-desc">${s.desc}</div>
@@ -2262,7 +2262,7 @@
       const benchPlayers = players.filter(p => excludedPlayers.has(p.name) || !inLineupNames.has(p.name));
 
       // Add player dropdown + pickup player input
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+      if (isOwner) html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
         <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;">ROSTER MANAGEMENT</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">`;
 
@@ -2282,7 +2282,7 @@
       </div>`;
 
       if (players.length < 9) {
-
+        // no warning needed
       }
 
       html += `<div class="lineup-builder-result">
@@ -2305,10 +2305,10 @@
           : getSpotReason(selectedStrategy, i, p);
         const avgCls = parseFloat(avg)>=0.3?'avg-good':parseFloat(avg)>=0.2?'avg-ok':'avg-low';
         html += `<div class="lineup-spot-row" data-index="${i}">
-          <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;">
+          ${isOwner ? `<div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;">
             <button onclick="moveLineupUp(${i})" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);width:28px;height:26px;font-size:0.9rem;cursor:pointer;min-height:unset;padding:0;line-height:1;" ${i===0?'disabled style="opacity:0.2;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);width:28px;height:26px;font-size:0.9rem;min-height:unset;padding:0;line-height:1;"':''}>▲</button>
             <button onclick="moveLineupDown(${i})" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);width:28px;height:26px;font-size:0.9rem;cursor:pointer;min-height:unset;padding:0;line-height:1;" ${i===currentBuiltLineup.length-1?'disabled style="opacity:0.2;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);width:28px;height:26px;font-size:0.9rem;min-height:unset;padding:0;line-height:1;"':''}>▼</button>
-          </div>
+          </div>` : ''}
           <div class="spot-number">${i+1}</div>
           <div class="spot-avatar"><div class="si">${initials}</div><div class="sn">#${p.number}</div></div>
           <div class="spot-info">
@@ -2321,16 +2321,16 @@
             <div class="spot-stat"><div class="sv">${ops}</div><div class="sl">OPS</div></div>
           </div>
           <span class="spot-role-badge ${cls}">${role}</span>
-          <button onclick="removePlayerFromLineup(${i})" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px;min-height:unset;width:auto;border-radius:6px;transition:color 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+          ${isOwner ? `<button onclick="removePlayerFromLineup(${i})" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px;min-height:unset;width:auto;border-radius:6px;transition:color 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>` : ''}
         </div>`;
       });
 
       html += `</div>
-        <div class="lineup-action-bar">
+        ${isOwner ? `<div class="lineup-action-bar">
           <button class="btn btn-primary" onclick="saveCurrentLineup()" style="flex:1;">💾 Save</button>
           <button class="btn btn-secondary" onclick="toggleShareText()" style="flex:1;">📤 Share</button>
           <button class="btn btn-secondary" onclick="resetLineup()" style="flex:1;" title="Re-sort current players using selected strategy">↺ Re-sort</button>
-        </div>`;
+        </div>` : ''}`;
 
       if (showShareText) {
         html += `<div class="share-text-box">${generateShareText()}</div>
@@ -2755,7 +2755,7 @@
       let html = `<div class="section-header"><span class="section-title">DEFENSE</span></div>
         <div class="strategy-grid">`;
       strategies.forEach(s => {
-        html += `<div class="strategy-card ${selectedDefStrategy===s.id?'selected':''}" onclick="selectDefStrategy('${s.id}')">
+        html += `<div class="strategy-card ${selectedDefStrategy===s.id?'selected':''}" ${isOwner?`onclick="selectDefStrategy('${s.id}')"`:'style="cursor:default;"'}>
           <div class="strategy-icon">${s.icon}</div>
           <div class="strategy-name">${s.name}</div>
           <div class="strategy-desc">${s.desc}</div>
@@ -2777,8 +2777,8 @@
       const assignedNames = new Set(Object.values(currentDefAssignment).filter(Boolean).map(p => p.name));
       const benchPlayers = players.filter(p => defExcludedPlayers.has(p.name) || !assignedNames.has(p.name));
 
-      // Roster management
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+      // Roster management — owner only
+      if (isOwner) html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
         <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;">ROSTER MANAGEMENT</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">`;
 
@@ -2845,7 +2845,7 @@
                 ).join('') + '</div>';
             })() : ''}
           </div>
-          <button class="btn ${defFillTargetPos === pos ? 'btn-danger' : 'btn-primary'}" onclick="defFillPosition('${pos}')" style="padding:8px 14px;min-height:unset;font-size:0.8rem;white-space:nowrap;flex-shrink:0;">${defFillTargetPos === pos ? '✕ Cancel' : '+ Fill'}</button>
+          ${isOwner ? `<button class="btn ${defFillTargetPos === pos ? 'btn-danger' : 'btn-primary'}" onclick="defFillPosition('${pos}')" style="padding:8px 14px;min-height:unset;font-size:0.8rem;white-space:nowrap;flex-shrink:0;">${defFillTargetPos === pos ? '✕ Cancel' : '+ Fill'}</button>` : ''}
           </div>`;
           return;
         }
@@ -2871,7 +2871,7 @@
             <div class="spot-stat"><div class="sv">${pct}%</div><div class="sl">Time</div></div>
           </div>
           <span class="spot-role-badge ${badgeCls}">${pctNum>=30?'Primary':pctNum>=10?'Secondary':'Limited'}</span>
-          <button onclick="defRemovePosition('${pos}')" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px;min-height:unset;width:auto;border-radius:6px;transition:color 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+          ${isOwner ? `<button onclick="defRemovePosition('${pos}')" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px;min-height:unset;width:auto;border-radius:6px;transition:color 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>` : ''}
         </div>`;
       });
 
@@ -2884,11 +2884,11 @@
       }
 
       html += `</div>
-        <div class="lineup-action-bar">
+        ${isOwner ? `<div class="lineup-action-bar">
           <button class="btn btn-primary" onclick="saveDefLineup()" style="flex:1;">💾 Save</button>
           <button class="btn btn-secondary" onclick="toggleDefShare()" style="flex:1;">📤 Share</button>
           <button class="btn btn-secondary" onclick="resetDefense()" style="flex:1;">↺ Re-sort</button>
-        </div>`;
+        </div>` : ''}`;
 
       if (showDefShare) {
         html += `<div class="share-text-box">${generateDefShareText()}</div>
