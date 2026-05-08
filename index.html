@@ -1281,32 +1281,23 @@
     }
 
     async function checkForShareCode() {
-      // Check if URL has ?team=CODE
       const params = new URLSearchParams(window.location.search);
       const code = params.get('team');
       if (!code) return false;
-
       try {
         const doc = await db.collection("shareCodes").doc(code).get();
-        if (!doc.exists) {
-          alert("Share link debug: code found in URL but not in Firebase — " + code);
-          return false;
-        }
+        if (!doc.exists) return false;
         viewerUID = doc.data().uid;
         isViewerMode = true;
-        alert("Share link debug: code OK, viewerUID = " + viewerUID.substring(0,8) + "...");
         return true;
       } catch(e) {
-        alert("Share link debug ERROR: " + e.message);
+        console.error("Share code lookup error:", e);
         return false;
       }
     }
 
     async function loadViewerData() {
-      if (!isViewerMode || !viewerUID) {
-        alert("loadViewerData: skipped — isViewerMode=" + isViewerMode + " viewerUID=" + viewerUID);
-        return;
-      }
+      if (!isViewerMode || !viewerUID) return;
       try {
         const [teamsDoc, lineupsDoc, savedDoc] = await Promise.all([
           db.collection("users").doc(viewerUID).collection("coachData").doc("teams").get(),
@@ -1319,9 +1310,8 @@
           savedLineups = savedDoc.data().savedLineups || [];
           savedDefLineups = savedDoc.data().savedDefLineups || [];
         }
-        alert("loadViewerData: teams loaded = " + Object.keys(allTeams).length + " teams");
       } catch(e) {
-        alert("loadViewerData ERROR: " + e.message);
+        console.error("Viewer data load error:", e);
       }
 
       // Show viewer banner
